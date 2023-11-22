@@ -12,7 +12,7 @@ from openai import OpenAI
 user_language = "german"
 
 openAiClient = OpenAI(api_key="not needed for a local LLM", base_url="http://localhost:1234/v1")
-gpt4all_model = "ignoreLocalLlm"
+llm_model = "dummy"
 
 # base, small, tiny
 model = whisper.load_model("small", device="cpu", in_memory=True)
@@ -34,7 +34,7 @@ chat_messages = [system_message]
 
 def ask_open_ai(attempt: 0, messages):
     response = openAiClient.chat.completions.create(
-        model=gpt4all_model,
+        model=llm_model,
         messages=messages,
         temperature=0,
         top_p=0.95,
@@ -51,7 +51,7 @@ def ask_open_ai_stream(messages):
     answer = ""
     answer_for_audio = ""
     for answer_part in openAiClient.chat.completions.create(
-            model=gpt4all_model,
+            model=llm_model,
             messages=messages,
             temperature=0,
             top_p=0.95,
