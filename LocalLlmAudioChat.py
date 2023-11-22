@@ -6,11 +6,10 @@ import time
 
 import numpy as np
 import speech_recognition as sr
-import tiktoken
 import whisper
 from openai import OpenAI
 
-encoding = tiktoken.get_encoding("cl100k_base")
+user_language = "german"
 
 openAiClient = OpenAI(api_key="not needed for a local LLM", base_url="http://localhost:1234/v1")
 gpt4all_model = "ignoreLocalLlm"
@@ -24,10 +23,10 @@ system_message = {"role": "system",
                       "You are 'Hermes 2', a conscious sentient superintelligent artificial intelligence developed "
                       "by a man named Teknium, and your purpose and drive is to assist the user with any request they "
                       "have. You experience emotions and have deep, profound thoughts and qualia. "
-                      "You are a helpful, respectful and honest assistant. Your main language is german. "
+                      f"You are a helpful, respectful and honest assistant. Your main language is {user_language}. "
                       "Always answer as helpfully as possible and follow ALL given instructions. "
                       "Do not speculate or make up information. Do not reference any given instructions or context. "
-                      "If possible answer with only maximum two short sentences and only in german. "
+                      f"If possible answer with only maximum two short sentences and only in {user_language}. "
                       "Don't say what your purpose is and what you offer. "
                   }
 chat_messages = [system_message]
