@@ -15,6 +15,7 @@ from openai import OpenAI
 
 user_language = "german"
 open_ai_server = "http://localhost:1234/v1"
+llm_api_key = "not needed for a local LLM"
 
 # Size	    Parameters	English-only    Multilingual    Required VRAM	Relative speed
 # tiny	    39 M	    tiny.en	        tiny	        ~1 GB	        ~32x
@@ -41,7 +42,8 @@ chat_messages = [{"role": "system",
                   }]
 
 whisper_model = whisper.load_model(whisper_model_type, device="cpu", in_memory=True)
-openAiClient = OpenAI(api_key="not needed for a local LLM", base_url=open_ai_server)
+
+openAiClient = OpenAI(api_key=llm_api_key, base_url=open_ai_server)
 llm_model = "dummy"
 
 
