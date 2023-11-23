@@ -14,11 +14,15 @@ import whisper
 from openai import OpenAI
 
 user_language = "german"
-# base, small, tiny
-whisper_model = whisper.load_model("small", device="cpu", in_memory=True)
+open_ai_server = "http://localhost:1234/v1"
 
-openAiClient = OpenAI(api_key="not needed for a local LLM", base_url="http://localhost:1234/v1")
-llm_model = "dummy"
+# Size	    Parameters	English-only    Multilingual    Required VRAM	Relative speed
+# tiny	    39 M	    tiny.en	        tiny	        ~1 GB	        ~32x
+# base	    74 M	    base.en	        base	        ~1 GB	        ~16x
+# small	    244 M	    small.en	    small	        ~2 GB	        ~6x
+# medium    769 M	    medium.en	    medium	        ~5 GB	        ~2x
+# large	    1550 M	    N/A	            large           ~10 GB	        1x
+whisper_model_type = "medium"
 
 chat_messages = [{"role": "system",
                   "content":
@@ -31,6 +35,10 @@ chat_messages = [{"role": "system",
                       f"If possible answer with only maximum two short sentences and only in {user_language}. "
                       "Don't say what your purpose is and what you offer. "
                   }]
+
+whisper_model = whisper.load_model(whisper_model_type, device="cpu", in_memory=True)
+openAiClient = OpenAI(api_key="not needed for a local LLM", base_url=open_ai_server)
+llm_model = "dummy"
 
 
 def ask_open_ai_stream(messages):
