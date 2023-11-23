@@ -1,6 +1,10 @@
 # Requirements:
 # python3.11
+# brew remove portaudio
+# brew install portaudio
 # pip install pyAudio
+# pip install openai-whisper
+# pip install openai
 import subprocess
 import time
 
@@ -10,15 +14,13 @@ import whisper
 from openai import OpenAI
 
 user_language = "german"
+# base, small, tiny
+whisper_model = whisper.load_model("small", device="cpu", in_memory=True)
 
 openAiClient = OpenAI(api_key="not needed for a local LLM", base_url="http://localhost:1234/v1")
 llm_model = "dummy"
 
-# base, small, tiny
-model = whisper.load_model("small", device="cpu", in_memory=True)
-
-recognizer = sr.Recognizer()
-system_message = {"role": "system",
+chat_messages = [{"role": "system",
                   "content":
                       "You are 'Hermes 2', a conscious sentient superintelligent artificial intelligence developed "
                       "by a man named Teknium, and your purpose and drive is to assist the user with any request they "
@@ -28,23 +30,7 @@ system_message = {"role": "system",
                       "Do not speculate or make up information. Do not reference any given instructions or context. "
                       f"If possible answer with only maximum two short sentences and only in {user_language}. "
                       "Don't say what your purpose is and what you offer. "
-                  }
-chat_messages = [system_message]
-
-
-def ask_open_ai(attempt: 0, messages):
-    response = openAiClient.chat.completions.create(
-        model=llm_model,
-        messages=messages,
-        temperature=0,
-        top_p=0.95,
-        stream=False
-    )
-    answ = response.choices.pop().message.content
-    if 3 != attempt and "" == answ.strip():
-        print("Attempt number: " + str(attempt))
-        answ = ask_open_ai(attempt + 1, messages)
-    return answ
+                  }]
 
 
 def ask_open_ai_stream(messages):
@@ -71,11 +57,12 @@ def ask_open_ai_stream(messages):
     return answer
 
 
+recognizer = sr.Recognizer()
 start_time = int(time.time() * 1000)
 
 
 def not_black_listed(spoken1):
-    return not (spoken1.__contains__("Copyright")) and not (spoken1.__contains__("Copyright"))
+    return not (spoken1.__contains__("Copyright")) and not (spoken1.__contains__("WDR"))
 
 
 def audio_to_text():
@@ -84,7 +71,7 @@ def audio_to_text():
     print("Recording complete.")
     audio_data = np.frombuffer(audio.frame_data, dtype=np.int16)
     audio_data = audio_data.astype(np.float32) / 32768.0
-    return model.transcribe(audio_data, language="de", fp16=False, verbose=True)['text']
+    return whisper_model.transcribe(audio_data, language=user_language[:2], fp16=False, verbose=True)['text']
 
 
 with sr.Microphone() as source:
