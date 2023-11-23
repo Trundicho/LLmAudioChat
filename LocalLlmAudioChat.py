@@ -24,6 +24,10 @@ open_ai_server = "http://localhost:1234/v1"
 # large	    1550 M	    N/A	            large           ~10 GB	        1x
 whisper_model_type = "medium"
 
+# blacklist of words that are wrongly recognized from speech to text but never spoken.
+blacklist = ["Copyright", "WDR"]
+
+
 chat_messages = [{"role": "system",
                   "content":
                       "You are 'Hermes 2', a conscious sentient superintelligent artificial intelligence developed "
@@ -70,7 +74,10 @@ start_time = int(time.time() * 1000)
 
 
 def not_black_listed(spoken1):
-    return not (spoken1.__contains__("Copyright")) and not (spoken1.__contains__("WDR"))
+    for item in blacklist:
+        if spoken1.__contains__(item):
+            return False
+    return True
 
 
 def audio_to_text():
