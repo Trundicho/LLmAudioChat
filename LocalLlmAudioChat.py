@@ -15,7 +15,8 @@ from openai import OpenAI
 
 user_language = "german"
 open_ai_server = "http://localhost:1234/v1"
-llm_api_key = "not needed for a local LLM"
+llm_api_key = "not needed for a local LLM server"
+llm_model = "not needed for a local LLM server"
 
 # Size	    Parameters	English-only    Multilingual    Required VRAM	Relative speed
 # tiny	    39 M	    tiny.en	        tiny	        ~1 GB	        ~32x
@@ -41,10 +42,13 @@ chat_messages = [{"role": "system",
                       "Don't say what your purpose is and what you offer. "
                   }]
 
+# -------------------------------------------------------------
+
 whisper_model = whisper.load_model(whisper_model_type, device="cpu", in_memory=True)
 
 openAiClient = OpenAI(api_key=llm_api_key, base_url=open_ai_server)
-llm_model = "dummy"
+
+recognizer = sr.Recognizer()
 
 
 def ask_open_ai_stream(messages):
@@ -71,10 +75,6 @@ def ask_open_ai_stream(messages):
     return answer
 
 
-recognizer = sr.Recognizer()
-start_time = int(time.time() * 1000)
-
-
 def not_black_listed(spoken1):
     for item in blacklist:
         if spoken1.__contains__(item):
@@ -82,7 +82,7 @@ def not_black_listed(spoken1):
     return True
 
 
-def audio_to_text():
+def voice_to_text():
     print("Speak something...")
     audio = recognizer.listen(source)
     print("Recording complete.")
@@ -94,7 +94,7 @@ def audio_to_text():
 with sr.Microphone() as source:
     while True:
         try:
-            spoken = audio_to_text()
+            spoken = voice_to_text()
             if spoken.strip() != "" and len(spoken.split(" ")) > 3 and not_black_listed(spoken):
                 print("LLM: " + spoken)
                 subprocess.call(['say', "Hmm."])
