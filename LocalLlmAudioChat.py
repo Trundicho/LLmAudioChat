@@ -5,6 +5,7 @@
 # pip install pyAudio
 # pip install openai-whisper
 # pip install openai
+# pip install SpeechRecognition
 import subprocess
 import time
 
@@ -13,7 +14,11 @@ import speech_recognition as sr
 import whisper
 from openai import OpenAI
 
-user_language = "german"
+language_map = {
+    "german": "de",
+    "english": "en"
+}
+user_language = "english"
 open_ai_server = "http://localhost:1234/v1"
 llm_api_key = "not needed for a local LLM server"
 llm_model = "not needed for a local LLM server"
@@ -62,10 +67,10 @@ def ask_open_ai_stream(messages):
             stream=True
     ):
         content = answer_part.choices[0].delta.content
-        if content != None:
+        if content is not None:
             answer += content
             answer_for_audio += content
-            if (answer_for_audio.endswith(".")):
+            if answer_for_audio.endswith("."):
                 print(answer_for_audio)
                 subprocess.call(['say', answer_for_audio])
                 answer_for_audio = ""
@@ -88,7 +93,7 @@ def voice_to_text():
     print("Recording complete.")
     audio_data = np.frombuffer(audio.frame_data, dtype=np.int16)
     audio_data = audio_data.astype(np.float32) / 32768.0
-    return whisper_model.transcribe(audio_data, language=user_language[:2], fp16=False, verbose=True)['text']
+    return whisper_model.transcribe(audio_data, language=language_map[user_language], fp16=False, verbose=True)['text']
 
 
 with sr.Microphone() as source:
