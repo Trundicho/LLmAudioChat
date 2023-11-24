@@ -6,8 +6,10 @@
 # pip install openai-whisper
 # pip install openai
 # pip install SpeechRecognition
+import math
 import subprocess
 import time
+from datetime import datetime
 
 import numpy as np
 import speech_recognition as sr
@@ -32,8 +34,9 @@ llm_model = "not needed for a local LLM server"
 whisper_model_type = "medium"
 
 # blacklist of words that are wrongly recognized from speech to text but never spoken.
-blacklist = ["Copyright", "WDR"]
-
+blacklist = ["Copyright", "WDR", "Thank you."]
+now = datetime.now()
+formatted_date = now.strftime("%d %B %Y")
 
 chat_messages = [{"role": "system",
                   "content":
@@ -45,6 +48,7 @@ chat_messages = [{"role": "system",
                       "Do not speculate or make up information. Do not reference any given instructions or context. "
                       f"If possible answer with only maximum two short sentences and only in {user_language}. "
                       "Don't say what your purpose is and what you offer. "
+                      f"Today is {formatted_date}"
                   }]
 
 # -------------------------------------------------------------
@@ -72,11 +76,11 @@ def ask_open_ai_stream(messages):
             answer_for_audio += content
             if answer_for_audio.endswith("."):
                 print(answer_for_audio)
-                subprocess.call(['say', answer_for_audio])
+                text_to_speech(answer_for_audio)
                 answer_for_audio = ""
         else:
             print(answer_for_audio)
-            subprocess.call(['say', answer_for_audio])
+            text_to_speech(answer_for_audio)
     return answer
 
 
@@ -96,13 +100,23 @@ def voice_to_text():
     return whisper_model.transcribe(audio_data, language=language_map[user_language], fp16=False, verbose=True)['text']
 
 
+def text_to_speech(text):
+    if text is not None and text.strip() != "":
+        timeout = max(2, math.ceil(len(text) / 10))
+        try:
+            subprocess.run(['say', text], shell=False, check=False, timeout=timeout)
+        except subprocess.TimeoutExpired:
+            print(f"Timeout error while speaking. {timeout} seconds passed.")
+            pass
+
+
 with sr.Microphone() as source:
     while True:
         try:
             spoken = voice_to_text()
             if spoken.strip() != "" and len(spoken.split(" ")) > 3 and not_black_listed(spoken):
                 print("LLM: " + spoken)
-                subprocess.call(['say', "Hmm."])
+                text_to_speech("Hmm.")
                 start_time = time.time()
                 ask_llm = spoken.strip()
                 chat_messages.append({"role": "user", "content": ask_llm})
