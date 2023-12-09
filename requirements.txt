@@ -1,0 +1,4 @@
+pyAudio
+openai-whisper
+openai
+SpeechRecognition

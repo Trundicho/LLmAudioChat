@@ -1,37 +1,25 @@
-# Requirements:
-# python3.11
-# brew remove portaudio
-# brew install portaudio
-# pip install pyAudio
-# pip install openai-whisper
-# pip install openai
-# pip install SpeechRecognition
 import math
 import subprocess
-import time
 from datetime import datetime
+import time
 
-import numpy as np
 import speech_recognition as sr
-import whisper
+from audio.processing.voice_to_text import voice_to_text
+from audio.processing.voice_to_text_mlx import voice_to_text_mlx
+
 from openai import OpenAI
 
+use_apple_mlx = False
 language_map = {
     "german": "de",
     "english": "en"
 }
-user_language = "english"
+user_language = "german"
 open_ai_server = "http://localhost:1234/v1"
 llm_api_key = "not needed for a local LLM server"
 llm_model = "not needed for a local LLM server"
+whisper_model_type = "base"
 
-# Size	    Parameters	English-only    Multilingual    Required VRAM	Relative speed
-# tiny	    39 M	    tiny.en	        tiny	        ~1 GB	        ~32x
-# base	    74 M	    base.en	        base	        ~1 GB	        ~16x
-# small	    244 M	    small.en	    small	        ~2 GB	        ~6x
-# medium    769 M	    medium.en	    medium	        ~5 GB	        ~2x
-# large	    1550 M	    N/A	            large           ~10 GB	        1x
-whisper_model_type = "medium"
 
 # blacklist of words that are wrongly recognized from speech to text but never spoken.
 blacklist = ["Copyright", "WDR", "Thank you."]
@@ -53,7 +41,6 @@ chat_messages = [{"role": "system",
 
 # -------------------------------------------------------------
 
-whisper_model = whisper.load_model(whisper_model_type, device="cpu", in_memory=True)
 
 openAiClient = OpenAI(api_key=llm_api_key, base_url=open_ai_server)
 
@@ -91,15 +78,6 @@ def not_black_listed(spoken1):
     return True
 
 
-def voice_to_text():
-    print("Speak something...")
-    audio = recognizer.listen(source)
-    print("Recording complete.")
-    audio_data = np.frombuffer(audio.frame_data, dtype=np.int16)
-    audio_data = audio_data.astype(np.float32) / 32768.0
-    return whisper_model.transcribe(audio_data, language=language_map[user_language], fp16=False, verbose=True)['text']
-
-
 def text_to_speech(text):
     if text is not None and text.strip() != "":
         timeout = max(2, math.ceil(len(text) / 10))
@@ -113,7 +91,11 @@ def text_to_speech(text):
 with sr.Microphone() as source:
     while True:
         try:
-            spoken = voice_to_text()
+            if use_apple_mlx:
+                spoken = voice_to_text_mlx(source, language_map[user_language], whisper_model_type)
+            else:
+                spoken = voice_to_text(source, language_map[user_language], whisper_model_type)
+            print(spoken)
             if spoken.strip() != "" and len(spoken.split(" ")) > 3 and not_black_listed(spoken):
                 print("LLM: " + spoken)
                 text_to_speech("Hmm.")
