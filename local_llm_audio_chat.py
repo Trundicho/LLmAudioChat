@@ -1,4 +1,3 @@
-import math
 import subprocess
 from datetime import datetime
 import time
@@ -9,7 +8,7 @@ from audio.processing.voice_to_text_mlx import voice_to_text_mlx
 
 from openai import OpenAI
 
-use_apple_mlx = False
+use_apple_mlx = True
 language_map = {
     "german": "de",
     "english": "en"
@@ -18,7 +17,7 @@ user_language = "german"
 open_ai_server = "http://localhost:1234/v1"
 llm_api_key = "not needed for a local LLM server"
 llm_model = "not needed for a local LLM server"
-whisper_model_type = "base"
+whisper_model_type = "small"
 
 
 # blacklist of words that are wrongly recognized from speech to text but never spoken.
@@ -80,7 +79,7 @@ def not_black_listed(spoken1):
 
 def text_to_speech(text):
     if text is not None and text.strip() != "":
-        timeout = max(2, math.ceil(len(text) / 10))
+        timeout = max(3, len(text.split(" ")))
         try:
             subprocess.run(['say', text], shell=False, check=False, timeout=timeout)
         except subprocess.TimeoutExpired:
