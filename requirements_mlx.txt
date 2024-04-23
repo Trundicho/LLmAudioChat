@@ -9,3 +9,4 @@ pyAudio
 openai-whisper
 openai
 SpeechRecognition
+anthropic~=0.21.3

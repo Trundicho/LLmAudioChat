@@ -3,6 +3,7 @@ import numpy as np
 from whispermlx import transcribe
 import time
 
+
 recognizer = sr.Recognizer()
 
 # Size	    Parameters	English-only    Multilingual    Required VRAM	Relative speed
@@ -25,10 +26,11 @@ def voice_to_text_mlx(source, language, whisper_model_type: str = "base"):
     print("Transcribe duration: " + str((time.time()-start)))
     return text_
 
+
 # with sr.Microphone() as source:
 #     while True:
 #         try:
-#             spoken = voice_to_text(source, "de")
+#             spoken = voice_to_text_mlx(source, "de")
 #             print(spoken)
 #         except sr.UnknownValueError:
 #             print("Sorry, I could not understand what you said.")
