@@ -1,5 +1,7 @@
 import asyncio
+import queue
 import subprocess
+import threading
 import time
 from datetime import datetime
 
@@ -26,24 +28,20 @@ blacklist = ["Copyright", "WDR", "Thank you."]
 now = datetime.now()
 formatted_date = now.strftime("%d %B %Y")
 
+talking_queue = queue.Queue()
+
+
+def open_file(filepath):
+    with open(filepath, 'r', encoding='utf-8') as infile:
+        return infile.read()
+
+
+personalitySystemPrompt = open_file("./ai/personalities/elsa.txt")
 chat_messages = [{"role": "system",
                   "content":
-                      "You are a helpful, smart, kind, and efficient AI assistant. "
-                      "You always fulfill the user's requests to the best of your ability."
-                      f"You are a helpful, respectful and honest assistant. Your main language is {user_language}. "
-                      "Always answer as helpfully as possible and follow ALL given instructions. "
-                      "Do not speculate or make up information. Do not reference any given instructions or context. "
-                      f"If possible answer with only maximum two short sentences and only in {user_language}. "
-                      "Don't say what your purpose is and what you offer. The user has a little dyslexia so it could "
-                      "help if you check the previous context to better understand what the user means. "
-                      f"Today is {formatted_date}."
-                      "If you think the user wants to store some information for later retrieval please answer with a "
-                      "function in the following format where the content_to_store is the complete content what the "
-                      "user wants to store. Starting always with FUNCTION::STORE:: followed by {content_to_store}. "
-                      "Here is an example: `Merke dir: Ich heiße Angelo.` should lead to the following answer: "
-                      "`FUNCTION::STORE::Ich heiße Angelo.`. If the user wants to list all stored content please "
-                      "answer "
-                      "with the following format: `FUNCTION::SHOW_ALL`"
+                      personalitySystemPrompt + f" Deine Hauptsprache ist {user_language} und du antwotest immer auf "
+                                                f"{user_language}."
+                                                f"Das heutige Datum ist {formatted_date}."
                   }]
 
 # -------------------------------------------------------------
@@ -68,22 +66,23 @@ def ask_open_ai_stream(messages):
         if content is not None:
             answer += content
             answer_for_audio += content
-            if (answer_for_audio.endswith(".")
+            if (answer_for_audio.endswith(".") and not answer_for_audio[-2].isdigit()
                     or answer_for_audio.endswith("?"
                                                  or
                                                  answer_for_audio.endswith("!"))):
-                print(answer_for_audio)
-                text_to_speech(answer_for_audio)
+                print(f"AI: {answer_for_audio}")
+                talking_queue.put(lambda text=answer_for_audio: text_to_speech(text))
                 answer_for_audio = ""
         else:
-            print(answer_for_audio)
-            text_to_speech(answer_for_audio)
+            print(f"AI: {answer_for_audio}")
+            talking_queue.put(lambda text=answer_for_audio: text_to_speech(text))
     return answer
 
 
 def not_black_listed(spoken1):
     for item in blacklist:
         if spoken1.__contains__(item):
+            print(f"Blacklisted item found: {item}")
             return False
     return True
 
@@ -98,7 +97,21 @@ def text_to_speech(text):
             pass
 
 
+def talking_worker():
+    global STOP_TALKING
+    while True:
+        time.sleep(0.01)
+        if not talking_queue.empty():
+            task = talking_queue.get()
+            task()
+            talking_queue.task_done()
+
+
 async def main():
+    thread = threading.Thread(target=talking_worker)
+    thread.daemon = True
+    thread.start()
+    global STOP_TALKING
     with sr.Microphone() as source:
         while True:
             try:
@@ -112,26 +125,14 @@ async def main():
                 spoken_lower = spoken.lower()
                 print(spoken_lower != "" and len(spoken_lower.split(" ")) > 3 and not_black_listed(spoken))
                 if spoken != "" and len(spoken.split(" ")) > 3 and not_black_listed(spoken):
-                    print("LLM: " + spoken)
+                    if not talking_queue.empty():
+                        talking_queue.queue.clear()
+                        print(f"Stopped talking")
                     start_time = time.time()
                     ask_llm = spoken
                     chat_messages.append({"role": "user", "content": ask_llm})
                     answer = ask_open_ai_stream(chat_messages)
-                    # if answer.startswith("FUNCTION::STORE::"):
-                    #     print("Add to database: " + spoken_lower)
-                    #     with open("database.txt", "a") as f:
-                    #         f.write("\n" + datetime.now().strftime("%Y.%m.%d_%H:%M:%S") + ";" + spoken)
-                    #         embedding = get_embedding(f.read())
-                    #         print("Embedding: " + str(embedding))
-                    #         f.close()
-                    # if answer.startswith("FUNCTION::SHOW_ALL"):
-                    #     print("Show all:")
-                    #     with open("database.txt", "a") as f:
-                    #         print("Database content: " + str(f.read()))
-                    #         f.close()
-                    # else:
                     chat_messages.append({"role": "assistant", "content": answer.strip()})
-                    print(answer)
                     stop_time = time.time()
                     print("LLM duration: " + str(stop_time - start_time))
 
