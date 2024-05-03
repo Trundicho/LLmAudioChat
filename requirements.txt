@@ -4,3 +4,7 @@ openai
 SpeechRecognition
 anthropic~=0.21.3
 faster_whisper
+curl_cffi
+google-auth
+pyautogui
+toml~=0.10.2

@@ -1,0 +1,23 @@
+[STORAGE]
+RAG_VAULT_FILE = "./ai/rag/vault.txt"
+
+[AI_TYPE]
+AI_TO_USE = "OPENAI" #OPENAI or CLAUDE
+
+[API_KEYS]
+OPENAI = "not needed for a local LLM server"
+
+[API_ENDPOINTS]
+DUCKDUCKGO = "https://duckduckgo.com/"
+OLLAMA = "http://127.0.0.1:11434"
+OPENAI = "http://localhost:1234/v1"
+EMBEDDING = "http://localhost:1234/v1" # "http://192.168.178.141:1234/v1"
+
+[API_MODELS]
+OPENAI = "lmstudio-community/Meta-Llama-3-8B-Instruct-GGUF/Meta-Llama-3-8B-Instruct-Q8_0.gguf"
+EMBEDDING = "nomic-ai/nomic-embed-text-v1.5-GGUF"
+
+[VERTEXAI]
+PROJECTID = "grain-defense-36857560"
+REGION = "us-central1"
+MODEL_ID = "claude-3-haiku@20240307"  # claude-3-opus@20240229 us-east5 claude-3-haiku@20240307 us-central1

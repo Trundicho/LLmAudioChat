@@ -46,3 +46,10 @@ In ```local_llm_audio_chat.py``` you can configure to use Apple MLX with the fla
 ```
 python3 local_llm_audio_chat.py
 ```
+
+# gcloud access
+pip install google-auth
+brew install --cask google-cloud-sdk
+
+gcloud auth application-default login
+gcloud auth application-default set-quota-project <your-project-id>
