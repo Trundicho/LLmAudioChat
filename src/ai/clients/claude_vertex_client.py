@@ -42,9 +42,6 @@ class ClaudeVertex(IOpenAiClient):
             print("An error occurred:", str(e))
             return "An error occured while processing your AI request. Please try again later."
 
-    def create_embeddings(self, data_array):
-        return self.embedding_client.embeddings.create(input=data_array, model=self.embedding_model).data[0].embedding
-
     def ask_ai_stream(self, messages):
         system_prompt = "You are a helpful assistant."
         messages_copy = copy.deepcopy(messages)

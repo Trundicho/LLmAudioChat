@@ -44,8 +44,8 @@ rag_system = RagSystem(config["STORAGE"]["RAG_VAULT_FILE"])
 tts = TextToSpeech()
 ai_client = AiClientFactory().create_ai_client(tts)
 
-personalitySystemPrompt = open_file("ai/personalities/elsa.txt")
-rag_function_system_message = rag_system.get_function_system_message("./ai/rag/functions_system_message.txt")
+personalitySystemPrompt = open_file(config["AI_CONFIG"]["PERSONALITY"])
+rag_function_system_message = rag_system.get_function_system_message(config["AI_CONFIG"]["FUNCTIONS_SYSTEM_MESSAGE"])
 system_message = personalitySystemPrompt + f" Deine Hauptsprache ist {user_language} und du antwotest immer auf " \
                                    f"{user_language}. " \
                                    f"Das heutige Datum ist {formatted_date}.\n\n" + rag_function_system_message
@@ -72,55 +72,65 @@ def not_black_listed(spoken1):
 chat_start_time = time.time()
 
 
+def llm_request_and_or_execute_function(spoken):
+    spoken = spoken.strip()
+    spoken_lower = spoken.lower()
+    global chat_start_time
+    if spoken_lower.__contains__("hallo") and spoken_lower.__contains__(chat_bot_name):
+        chat_start_time = time.time()
+        print("Discussion resumed")
+    if time.time() - chat_start_time > chat_duration_until_pause:
+        print("Discussion paused")
+        return False
+    print(spoken_lower != "" and len(spoken_lower.split(" ")) > 3 and not_black_listed(spoken))
+    if spoken != "" and len(spoken.split(" ")) > 3 and not_black_listed(spoken):
+        chat_start_time = time.time()
+        tts.stop_talking()
+        now_strftime = datetime.now().strftime('%H:%M:%S')
+        start_time = time.time()
+        print(now_strftime)
+        ask_llm = f"Die aktuelle Zeit ist {now_strftime}. {spoken}"
+        chat_messages.append({"role": "user", "content": ask_llm})
+        answer = ai_client.ask_ai_stream(chat_messages)
+        function_call = rag_system.parse_function_call(answer)
+        if function_call:
+            tts.add_to_queue(function_call["name"])
+            function_result = rag_system.execute_function_call(function_call)
+            print(f"Function result: {function_result}")
+            chat_messages.append({"role": "assistant", "content": function_result.strip()})
+        else:
+            chat_messages.append({"role": "assistant", "content": answer.strip()})
+        stop_time = time.time()
+        print("LLM duration: " + str(stop_time - start_time))
+    return True
+
+
 async def main():
+    test_mode_without_micropohne = False
+
     thread = threading.Thread(target=tts.talking_worker)
     thread.daemon = True
     thread.start()
-    global chat_start_time
     global chat_bot_name
     global chat_duration_until_pause
-    with sr.Microphone() as source:
-        while True:
-            try:
-                if vtt_type == "MLX":
-                    spoken = voice_to_text_mlx(source, language_map[user_language], whisper_model_type)
-                elif vtt_type == "FASTER_WHISPER":
-                    spoken = voice_to_text_faster(source, language_map[user_language], whisper_model_type)
-                else:
-                    spoken = voice_to_text(source, language_map[user_language], whisper_model_type)
-                spoken = spoken.strip()
-                spoken_lower = spoken.lower()
-                if spoken_lower.__contains__("hallo") and spoken_lower.__contains__(chat_bot_name):
-                    chat_start_time = time.time()
-                    print("Discussion resumed")
-                if time.time() - chat_start_time > chat_duration_until_pause:
-                    print("Discussion paused")
-                    continue
-                print(spoken_lower != "" and len(spoken_lower.split(" ")) > 3 and not_black_listed(spoken))
-                if spoken != "" and len(spoken.split(" ")) > 3 and not_black_listed(spoken):
-                    chat_start_time = time.time()
-                    tts.stop_talking()
-                    now_strftime = datetime.now().strftime('%H:%M:%S')
-                    start_time = time.time()
-                    print(now_strftime)
-                    ask_llm = f"Die aktuelle Zeit ist {now_strftime}. {spoken}"
-                    chat_messages.append({"role": "user", "content": ask_llm})
-                    answer = ai_client.ask_ai_stream(chat_messages)
-                    function_call = rag_system.parse_function_call(answer)
-                    if function_call:
-                        tts.add_to_queue(function_call["name"])
-                        function_result = rag_system.execute_function_call(function_call)
-                        print(f"Function result: {function_result}")
-                        chat_messages.append({"role": "assistant", "content": function_result.strip()})
+    if test_mode_without_micropohne:
+        llm_request_and_or_execute_function("Hallo Elsa, spiel mir das Youtube video Stadtaffe von Peter Fox.")
+    else:
+        with sr.Microphone() as source:
+            while True:
+                try:
+                    if vtt_type == "MLX":
+                        spoken = voice_to_text_mlx(source, language_map[user_language], whisper_model_type)
+                    elif vtt_type == "FASTER_WHISPER":
+                        spoken = voice_to_text_faster(source, language_map[user_language], whisper_model_type)
                     else:
-                        chat_messages.append({"role": "assistant", "content": answer.strip()})
-                    stop_time = time.time()
-                    print("LLM duration: " + str(stop_time - start_time))
+                        spoken = voice_to_text(source, language_map[user_language], whisper_model_type)
+                    llm_request_and_or_execute_function(spoken)
 
-            except sr.UnknownValueError:
-                print("Sorry, I could not understand what you said.")
-            except sr.RequestError as e:
-                print("Sorry, an error occurred while trying to access the Google Web Speech API: {0}".format(e))
+                except sr.UnknownValueError:
+                    print("Sorry, I could not understand what you said.")
+                except sr.RequestError as e:
+                    print("Sorry, an error occurred while trying to access the Google Web Speech API: {0}".format(e))
 
 
 asyncio.run(main())

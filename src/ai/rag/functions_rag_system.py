@@ -21,9 +21,9 @@ class RagSystem:
         self.vault_content = []
         self.vault_embeddings = torch.tensor([])
         self.ai_client = AiClientFactory().create_ai_client(None)
+        self.embeddings_client = AiClientFactory().create_embeddings_client()
         self.functions = [
             self.convert_to_openai_function(self.add_to_context),
-            self.convert_to_openai_function(self.send_email),
             self.convert_to_openai_function(self.search_web),
             self.convert_to_openai_function(self.play_youtube_video),
             self.convert_to_openai_function(self.stop_youtube_video)
@@ -36,7 +36,7 @@ class RagSystem:
     def get_embedding(self, data_array):
         embeddings = []
         for data_array in data_array:
-            embeddings.append(self.ai_client.create_embeddings(data_array))
+            embeddings.append(self.embeddings_client.create_embeddings(data_array))
         return torch.tensor(embeddings)
 
     def get_relevant_context(self, user_input, top_k=3, threshold=0.5):
@@ -90,14 +90,14 @@ class RagSystem:
     #     Add to context: I have a son and a daughter
 
     def search_web(self, query):
-        search = DuckDuckGoSearch(self.ai_client)
+        search = DuckDuckGoSearch(self.embeddings_client)
         results = search.duck(query, 5)
         for result in results:
             self.add_to_context(result)
         return results
 
     def play_youtube_video(self, query):
-        search = DuckDuckGoSearch(self.ai_client)
+        search = DuckDuckGoSearch(self.embeddings_client)
         results = search.duck(query + " official youtube", 50, search_type="videos")
         if results is not None and len(results) > 0:
             try:
@@ -163,15 +163,10 @@ class RagSystem:
                 return None
         return None
 
-    def send_email(self, recipient, subject, body):
-        print(f"Sending email to {recipient} with subject {subject} and body {body}")
-
     def get_function_system_message(self, file_name="functions_system_message.txt"):
-        return self.open_file(file_name).replace("{functions}",
-                                                                         json.dumps(self.functions, indent=2))
+        return self.open_file(file_name).replace("{functions}", json.dumps(self.functions, indent=2))
 
     def chat(self, messages):
-
         if messages[0]["role"] != "system":
             system_message = (f"You are an AI Agent that is an expert in following instructions. "
                               f"You will engage in conversation and provide relevant information to the "
@@ -189,10 +184,7 @@ class RagSystem:
         function_arguments = {}
         if "arguments" in function_call:
             function_arguments = function_call["arguments"]
-        if function_name == "send_email":
-            self.send_email(**function_arguments)
-            return "Email sent successfully!"
-        elif function_name == "search_web":
+        if function_name == "search_web":
             search_result = self.search_web(**function_arguments)
             print(f"Added {len(search_result)} top search results to the context.")
             self.conversation_history.append(

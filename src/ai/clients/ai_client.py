@@ -8,9 +8,5 @@ class IOpenAiClient(ABC):
         pass
 
     @abstractmethod
-    def create_embeddings(self, data_array):
-        pass
-
-    @abstractmethod
     def ask_ai_stream(self, messages):
         pass

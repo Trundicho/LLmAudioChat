@@ -8,13 +8,10 @@ class OpenAiClient(IOpenAiClient):
     def __init__(self, tts):
         config = AudioChatConfig().get_config()
         self.open_ai_server = config["API_ENDPOINTS"]["OPENAI"]
-        self.embedding_server = config["API_ENDPOINTS"]["EMBEDDING"]
         self.llm_api_key = config["API_KEYS"]["OPENAI"]
         self.llm_api_key = "not needed for a local LLM server"
         self.llm_model = config["API_MODELS"]["OPENAI"]
-        self.embedding_model = config["API_MODELS"]["EMBEDDING"]
         self.client = OpenAI(api_key=self.llm_api_key, base_url=self.open_ai_server)
-        self.embedding_client = OpenAI(api_key=self.llm_api_key, base_url=self.embedding_server)
         self.tts = tts
 
     def my_chat(self, messages, functions):
@@ -62,6 +59,3 @@ class OpenAiClient(IOpenAiClient):
     def add_to_tts_queue(self, answer_for_audio):
         if self.tts is not None:
             self.tts.add_to_queue(answer_for_audio)
-
-    def create_embeddings(self, data_array):
-        return self.embedding_client.embeddings.create(input=data_array, model=self.embedding_model).data[0].embedding

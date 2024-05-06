@@ -10,13 +10,13 @@ from src.audio_chat_config import AudioChatConfig
 
 class DuckDuckGoSearch:
 
-    def __init__(self, client):
+    def __init__(self, embeddings_client):
         from curl_cffi import requests as curl_requests
         self.query_result = None
         self.asession = curl_requests.Session(impersonate="chrome", allow_redirects=False)
         config = AudioChatConfig().get_config()
         self.asession.headers["Referer"] = config["API_ENDPOINTS"]["DUCKDUCKGO"]
-        self.client = client
+        self.embeddings_client = embeddings_client
 
     def _get_url(self, method, url, data):
         try:
@@ -86,11 +86,8 @@ class DuckDuckGoSearch:
                 return relevant_context[0]
         return None
 
-    def get_embedding(self, data_array, model="nomic-ai/nomic-embed-text-v1.5-GGUF"):
-        embeddings = []
-        for data_array in data_array:
-            embeddings.append(self.client.embeddings.create(input=data_array, model=model).data[0].embedding)
-        return torch.tensor(embeddings)
+    def get_embedding(self, data_array):
+        return torch.tensor(self.embeddings_client.create_embeddings(data_array))
 
     def filter_search_result(self, result):
         return result.get("tags").__contains__(

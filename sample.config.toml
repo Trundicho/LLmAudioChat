@@ -1,8 +1,10 @@
 [STORAGE]
 RAG_VAULT_FILE = "./ai/rag/vault.txt"
 
-[AI_TYPE]
+[AI_CONFIG]
 AI_TO_USE = "OPENAI" #OPENAI or CLAUDE
+PERSONALITY = "./src/ai/personalities/elsa.txt"
+FUNCTIONS_SYSTEM_MESSAGE = "./src/ai/rag/functions_system_message.txt"
 
 [API_KEYS]
 OPENAI = "not needed for a local LLM server"

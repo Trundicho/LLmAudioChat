@@ -7,15 +7,6 @@ If you return a functioncall only return the function call with the exact specif
 and without any markup. It has to start with <functioncall> and end with </functioncall>.
 Example: <functioncall>{{"name": "a_function_name", "arguments": {{"argument_name": "argument_value"}}}}</functioncall>
 
-*function:send_email*
-Only if the user's input contains the words "send a mail" or similar, extract the necessary information (recipient, subject,
- body) from the input and generate a function call in the following format:
-<functioncall>{{"name": "send_email", "arguments": {{"recipient": "user_provided_email@example.com", "subject": "User-provided subject","body": "User-provided email body"}}}}</functioncall>
-Make sure to replace the placeholders (user_provided_email@example.com, User-provided subject, User-provided email body) with the actual information provided by the user.
-After generating the function call, execute the function to send the email and inform the user that the email has been sent.
-
-Example: user: send a mail with information to users provided recipient
-
 *function:add_to_context*
 Only if user's input contains the words "add to context" and some sort of information or message from the user,
 generate a function call in the following format:
