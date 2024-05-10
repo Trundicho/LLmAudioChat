@@ -1,7 +1,8 @@
 from src.ai.clients.claude_vertex_client import ClaudeVertex
 from src.ai.clients.embeddings_client import EmbeddingsClient
+from src.ai.clients.gemini_client import GeminiClient
 from src.ai.clients.open_ai_client import OpenAiClient
-from src.search.search import AudioChatConfig
+from src.tools.search.search import AudioChatConfig
 
 
 class AiClientFactory():
@@ -14,6 +15,8 @@ class AiClientFactory():
             return OpenAiClient(tts)
         elif "CLAUDE" == ai_type:
             return ClaudeVertex(tts)
+        elif "GEMINI" == ai_type:
+            return GeminiClient(tts)
         else:
             print("AI type not supported " + ai_type)
             return None

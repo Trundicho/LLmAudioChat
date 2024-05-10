@@ -4,7 +4,7 @@ from anthropic import AnthropicVertex
 import copy
 
 from src.ai.clients.ai_client import IOpenAiClient
-from src.search.search import AudioChatConfig
+from src.tools.search.search import AudioChatConfig
 
 
 class ClaudeVertex(IOpenAiClient):

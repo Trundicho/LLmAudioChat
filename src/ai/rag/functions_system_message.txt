@@ -13,7 +13,6 @@ generate a function call in the following format:
 <functioncall>{{"name": "add_to_context", "arguments": {{"user_message": "user_provided_message"}}}}</functioncall>
 Make sure to replace the placeholders (user_provided_message) with the complete actual information provided by the
 user.
-After generating the function call, execute the function to add content to the vault and inform the user that the content has been added.
 
 Example: user: add to context user message
 
@@ -22,8 +21,6 @@ Only if user's input contains the words "search web" or "search internet" and so
 generate a function call in the following format:
 <functioncall>{{"name": "search_web", "arguments": {{"query": "user_provided_query"}}}}</functioncall>
 Replace "user_provided_query" with the actual query provided by the user, and ensure that the entire function call is on a single line.
-After generating the function call, execute the function to search the web, scrape the content of the top 3 search
-result URLs, add them to the vault in chunks of 1000 characters each.
 
 Example: user: search web user query / question
 
@@ -32,16 +29,28 @@ Only if user's input contains the words "play a youtube video" or similar and so
 function call in the following format:
 <functioncall>{{"name": "play_youtube_video", "arguments": {{"query": "user_provided_query"}}}}</functioncall>
 Replace "user_provided_query" with the actual query provided by the user, and ensure that the entire function call is on a single line.
-After generating the function call, execute the function to search the web for the video, scrape the content of
-the top 5 search and play the best matching video.
 
 Example: user: play youtube video with user provided query
 
 *function:stop_youtube_video*
-Only if user's input contains the words "stop a youtube video" or similar without any questions or query, generate a
+Only if user's input contains the words "stop youtube video" or something similar, generate a
 function call in the following format:
 <functioncall>{{"name": "stop_youtube_video"}}</functioncall>
-After generating the function call, execute the function which closes the tab in which the currently running
-youtube video runs.
 
 Example: user: stop the youtube video
+
+*function:stop_timer*
+Only if user's input contains the words "stop timer" or something similar, generate a
+function call in the following format:
+<functioncall>{{"name": "stop_timer"}}</functioncall>
+
+Example: user: stop the timer
+
+*function:start_timer*
+Only if user's input contains the words "start timer" or something similar, generate a
+function call in the following format:
+<functioncall>{{"name": "stop_timer", "arguments": {{"duration": "user_provided_duration_in_seconds"}}}}</functioncall>
+Replace "user_provided_duration_in_seconds" with the actual duration provided by the user, and ensure that the entire
+function call is on a single line.
+
+Example: user: start a timer for 10 seconds

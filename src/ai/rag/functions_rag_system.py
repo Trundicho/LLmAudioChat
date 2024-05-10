@@ -10,23 +10,27 @@ import torch
 from sentence_transformers import util
 
 from src.ai.clients.ai_client_factory import AiClientFactory
-from src.search.search import DuckDuckGoSearch
+from src.tools.search.search import DuckDuckGoSearch
+from src.tools.timer.timer import Timer
 
 
 class RagSystem:
-    def __init__(self, rag_vault_file="vault.txt"):
+    def __init__(self, rag_vault_file="vault.txt", tts=None):
         self.rag_vault_file = rag_vault_file
         self.conversation_history = []
         self.vault_updated = True
         self.vault_content = []
         self.vault_embeddings = torch.tensor([])
-        self.ai_client = AiClientFactory().create_ai_client(None)
+        self.ai_client = AiClientFactory().create_ai_client(tts)
         self.embeddings_client = AiClientFactory().create_embeddings_client()
+        self.timer = Timer()
         self.functions = [
             self.convert_to_openai_function(self.add_to_context),
             self.convert_to_openai_function(self.search_web),
             self.convert_to_openai_function(self.play_youtube_video),
-            self.convert_to_openai_function(self.stop_youtube_video)
+            self.convert_to_openai_function(self.stop_youtube_video),
+            self.convert_to_openai_function(self.start_timer),
+            self.convert_to_openai_function(self.stop_timer)
         ]
 
     def open_file(self, filepath):
@@ -34,10 +38,7 @@ class RagSystem:
             return infile.read()
 
     def get_embedding(self, data_array):
-        embeddings = []
-        for data_array in data_array:
-            embeddings.append(self.embeddings_client.create_embeddings(data_array))
-        return torch.tensor(embeddings)
+        return torch.tensor(self.embeddings_client.create_embeddings(data_array))
 
     def get_relevant_context(self, user_input, top_k=3, threshold=0.5):
         vault_content, vault_embeddings = self.get_vault_embeddings()
@@ -64,18 +65,18 @@ class RagSystem:
     # Check context: What's my favorite place?
     # Check context: What do I like to eat the most?
 
-    def check_context(self, messages, functions):
+    def check_context(self, messages):
         user_message = messages[len(messages) - 1]["content"]
         relevant_context = self.get_relevant_context(user_message, 3)
         if relevant_context:
-            context_str = "\n".join(relevant_context)
-            result = (f"Possibly relevant information: \n{context_str}\n\nJust answer the user's question:"
-                      f" {user_message}")
+            context_str = "\n\n".join(relevant_context)
+            result = (f"Possibly relevant information to answer the user's question: \n{context_str}\n\nIf there is "
+                      f"relevant information, please just answer the user's question: {user_message}")
             messages[len(messages) - 1] = {"role": "user", "content": result}
-            result2 = self.ai_client.my_chat(messages, functions)  # Pass a List of messages
+            result2 = self.ai_client.ask_ai_stream(messages)  # Pass a List of messages
             return result2
         else:
-            result2 = self.ai_client.my_chat(messages, functions)
+            result2 = self.ai_client.ask_ai_stream(messages)
         return result2
 
     def add_to_context(self, user_message):
@@ -115,6 +116,12 @@ class RagSystem:
         time.sleep(2)
         pyautogui.keyUp("command")
         return None
+
+    def start_timer(self, duration):
+        self.timer.start(duration)
+
+    def stop_timer(self):
+        self.timer.stop()
 
     def convert_to_openai_function(self, func):
         return {
@@ -173,7 +180,7 @@ class RagSystem:
                               f"best of your knowledge. ")
             system_message += self.get_function_system_message()
             messages.insert(0, {"role": "system", "content": system_message})
-        message_content = self.check_context(messages, self.functions)
+        message_content = self.check_context(messages)
         function_call = self.parse_function_call(message_content)
         if function_call:
             return self.execute_function_call(function_call)
@@ -200,12 +207,18 @@ class RagSystem:
         elif function_name == "add_to_context":
             vault_result = self.add_to_context(**function_arguments)
             return vault_result
+        elif function_name == "start_timer":
+            self.start_timer(**function_arguments)
+            return f"The timer has been started."
+        elif function_name == "stop_timer":
+            self.stop_timer()
+            return f"The timer has been stopped."
         else:
             return f"Unknown function: {function_name}"
 
 
 if __name__ == '__main__':
-    ragSystem = RagSystem()
+    ragSystem = RagSystem("vault.txt")
     while True:
         user_input = input("User: ")
         ragSystem.conversation_history.append({"role": "user", "content": user_input})

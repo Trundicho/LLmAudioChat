@@ -9,7 +9,7 @@ class TextToSpeech:
 
     def text_to_speech(self, text):
         if text is not None and text.strip() != "":
-            timeout = max(4, len(text.split(" ")))
+            timeout = max(5, len(text.split(" ")))
             try:
                 subprocess.run(['say', text], shell=False, check=False, timeout=timeout)
             except subprocess.TimeoutExpired:

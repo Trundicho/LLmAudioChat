@@ -12,7 +12,7 @@ from src.processing.text_to_speech import TextToSpeech
 from src.processing.voice_to_text import voice_to_text
 from src.processing.voice_to_text_faster import voice_to_text_faster
 from src.processing.voice_to_text_mlx import voice_to_text_mlx
-from src.search.search import AudioChatConfig
+from src.tools.search.search import AudioChatConfig
 
 vtt_type = "MLX"  # MLX, FASTER_WHISPER, WHISPER
 language_map = {
@@ -40,15 +40,15 @@ def open_file(filepath):
         return infile.read()
 
 
-rag_system = RagSystem(config["STORAGE"]["RAG_VAULT_FILE"])
 tts = TextToSpeech()
+rag_system = RagSystem(config["STORAGE"]["RAG_VAULT_FILE"], tts)
 ai_client = AiClientFactory().create_ai_client(tts)
 
 personalitySystemPrompt = open_file(config["AI_CONFIG"]["PERSONALITY"])
 rag_function_system_message = rag_system.get_function_system_message(config["AI_CONFIG"]["FUNCTIONS_SYSTEM_MESSAGE"])
 system_message = personalitySystemPrompt + f" Deine Hauptsprache ist {user_language} und du antwotest immer auf " \
-                                   f"{user_language}. " \
-                                   f"Das heutige Datum ist {formatted_date}.\n\n" + rag_function_system_message
+                                           f"{user_language}. " \
+                                           f"Das heutige Datum ist {formatted_date}.\n\n" + rag_function_system_message
 chat_messages = [{"role": "system",
                   "content": system_message
                   }]
@@ -91,7 +91,8 @@ def llm_request_and_or_execute_function(spoken):
         print(now_strftime)
         ask_llm = f"Die aktuelle Zeit ist {now_strftime}. {spoken}"
         chat_messages.append({"role": "user", "content": ask_llm})
-        answer = ai_client.ask_ai_stream(chat_messages)
+        # answer = ai_client.ask_ai_stream(chat_messages)
+        answer = rag_system.check_context(chat_messages)
         function_call = rag_system.parse_function_call(answer)
         if function_call:
             tts.add_to_queue(function_call["name"])
@@ -101,20 +102,22 @@ def llm_request_and_or_execute_function(spoken):
         else:
             chat_messages.append({"role": "assistant", "content": answer.strip()})
         stop_time = time.time()
-        print("LLM duration: " + str(stop_time - start_time))
+        print("LLM + Rag duration: " + str(stop_time - start_time))
     return True
 
 
 async def main():
-    test_mode_without_micropohne = False
+    keyboard_or_microphone = "microphone"  # microphone or keyboard
 
     thread = threading.Thread(target=tts.talking_worker)
-    thread.daemon = True
+    thread.daemon = False
     thread.start()
     global chat_bot_name
     global chat_duration_until_pause
-    if test_mode_without_micropohne:
-        llm_request_and_or_execute_function("Hallo Elsa, spiel mir das Youtube video Stadtaffe von Peter Fox.")
+    if keyboard_or_microphone == "keyboard":
+        while True:
+            user_input = input("User: ")
+            llm_request_and_or_execute_function(user_input)
     else:
         with sr.Microphone() as source:
             while True:
