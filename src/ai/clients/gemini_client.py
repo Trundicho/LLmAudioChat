@@ -15,6 +15,8 @@ class GeminiClient(IOpenAiClient):
         self.tts = tts
         self.system_prompt = None
         self.model = None
+        self.model_id = "gemini-1.5-flash-preview-0514" #gemini-1.5-flash-preview-0514 gemini-1.5-pro-preview-0409 gemini-1.0-pro-001
+
 
     def ask_ai_stream(self, messages):
         messages_copy = copy.deepcopy(messages)
@@ -29,9 +31,7 @@ class GeminiClient(IOpenAiClient):
                 messages_copy.insert(index, {"role": "model", "content": m["content"]})
                 break
         if self.model is None:
-            self.model = GenerativeModel("gemini-1.5-pro-preview-0409", system_instruction=self.system_prompt)
-        # gemini-1.5-pro-preview-0409
-        # gemini-1.0-pro-001
+            self.model = GenerativeModel(self.model_id, system_instruction=self.system_prompt)
 
         answer = ""
         answer_for_audio = ""
@@ -124,6 +124,6 @@ if __name__ == '__main__':
         prompt_content = file.read()
 
     # Call the inference method with a model ID and prompt
-    thread = Thread(target=lambda: gemini.inference("gemini-1.0-pro-001", prompt_content))
+    thread = Thread(target=lambda: gemini.inference(prompt_content))
     thread.start()
     # response = gemini.inference("gemini-1.0-pro-001", prompt_content)

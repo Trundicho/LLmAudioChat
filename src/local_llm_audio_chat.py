@@ -9,12 +9,9 @@ from openai import OpenAI
 from ai.clients.ai_client_factory import AiClientFactory
 from ai.rag.functions_rag_system import RagSystem
 from src.processing.text_to_speech import TextToSpeech
-from src.processing.voice_to_text import voice_to_text
-from src.processing.voice_to_text_faster import voice_to_text_faster
-from src.processing.voice_to_text_mlx import voice_to_text_mlx
+from src.processing.voice_to_text_factory import VoiceToTextFactory
 from src.tools.search.search import AudioChatConfig
 
-vtt_type = "MLX"  # MLX, FASTER_WHISPER, WHISPER
 language_map = {
     "german": "de",
     "english": "en"
@@ -33,6 +30,8 @@ chat_duration_until_pause = 10
 blacklist = ["Copyright", "WDR", "Thank you."]
 now = datetime.now()
 formatted_date = now.strftime("%A %d %B %Y")
+
+voice_to_text = VoiceToTextFactory().create_voice_to_text()
 
 
 def open_file(filepath):
@@ -122,12 +121,7 @@ async def main():
         with sr.Microphone() as source:
             while True:
                 try:
-                    if vtt_type == "MLX":
-                        spoken = voice_to_text_mlx(source, language_map[user_language], whisper_model_type)
-                    elif vtt_type == "FASTER_WHISPER":
-                        spoken = voice_to_text_faster(source, language_map[user_language], whisper_model_type)
-                    else:
-                        spoken = voice_to_text(source, language_map[user_language], whisper_model_type)
+                    spoken = voice_to_text.voice_to_text(source, language_map[user_language], whisper_model_type)
                     llm_request_and_or_execute_function(spoken)
 
                 except sr.UnknownValueError:

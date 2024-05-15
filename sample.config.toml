@@ -23,3 +23,6 @@ EMBEDDING = "nomic-ai/nomic-embed-text-v1.5-GGUF"
 PROJECTID = "grain-defense-36857560"
 REGION = "us-central1"
 MODEL_ID = "claude-3-haiku@20240307"  # claude-3-opus@20240229 us-east5 claude-3-haiku@20240307 us-central1
+
+[VOICE]
+VOICE_TO_TEXT_TYPE = "MLX_WHISPER" # MLX_WHISPER, FASTER_WHISPER, WHISPER
