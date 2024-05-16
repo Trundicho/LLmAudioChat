@@ -1,0 +1,8 @@
+*function:add_to_context*
+Only if user's input contains the words "add to context" and some sort of information or message from the user,
+generate a function call in the following format:
+<functioncall>{{"name": "add_to_context", "arguments": {{"user_message": "user_provided_message"}}}}</functioncall>
+Make sure to replace the placeholders (user_provided_message) with the complete actual information provided by the
+user.
+
+Example: user: add to context user message

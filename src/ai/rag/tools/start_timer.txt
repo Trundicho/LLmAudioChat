@@ -1,0 +1,8 @@
+*function:start_timer*
+Only if user's input contains the words "start timer" or something similar, generate a
+function call in the following format:
+<functioncall>{{"name": "stop_timer", "arguments": {{"duration": "user_provided_duration_in_seconds"}}}}</functioncall>
+Replace "user_provided_duration_in_seconds" with the actual duration provided by the user, and ensure that the entire
+function call is on a single line.
+
+Example: user: start a timer for 10 seconds

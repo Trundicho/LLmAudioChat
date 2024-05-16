@@ -1,0 +1,6 @@
+*function:stop_youtube_video*
+Only if user's input contains the words "stop youtube video" or something similar, generate a
+function call in the following format:
+<functioncall>{{"name": "stop_youtube_video"}}</functioncall>
+
+Example: user: stop the youtube video

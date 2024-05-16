@@ -1,0 +1,8 @@
+*function:use_camera*
+Only if user's input contains the words "Use the camera" or "Use the Kamera" something similar then you don't make up an
+answer but generate a function call in the following format:
+<functioncall>{{"name": "use_camera", "arguments": {{"user_query": "user_provided_query"}}}}</functioncall>
+Replace "user_provided_query" with the actual query provided by the user, and ensure that the entire
+function call is on a single line.
+
+Example: user: Use the camera, what do you see?

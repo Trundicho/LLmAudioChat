@@ -1,8 +1,10 @@
 import re
-from urllib.parse import unquote
 from html import unescape
+from urllib.parse import unquote
+
 import orjson
 import torch
+from curl_cffi import requests as curl_requests
 from sentence_transformers import util
 
 from src.audio_chat_config import AudioChatConfig
@@ -11,7 +13,6 @@ from src.audio_chat_config import AudioChatConfig
 class DuckDuckGoSearch:
 
     def __init__(self, embeddings_client):
-        from curl_cffi import requests as curl_requests
         self.query_result = None
         self.asession = curl_requests.Session(impersonate="chrome", allow_redirects=False)
         config = AudioChatConfig().get_config()

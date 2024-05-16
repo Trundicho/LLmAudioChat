@@ -46,8 +46,8 @@ rag_system = RagSystem(rag_vault_file, tts)
 ai_client = AiClientFactory().create_ai_client(tts)
 
 personalitySystemPrompt = open_file(config["AI_CONFIG"]["PERSONALITY"])
-tools = Tools(rag_vault_file)
-rag_function_system_message = tools.get_function_system_message(config["AI_CONFIG"]["FUNCTIONS_SYSTEM_MESSAGE"])
+tools = Tools(rag_vault_file, tts)
+rag_function_system_message = tools.get_function_system_message()
 system_message = personalitySystemPrompt + f" Deine Hauptsprache ist {user_language} und du antwotest immer auf " \
                                            f"{user_language}. " \
                                            f"Das heutige Datum ist {formatted_date}.\n\n" + rag_function_system_message
@@ -94,7 +94,7 @@ def llm_request_and_or_execute_function(spoken):
         ask_llm = f"Die aktuelle Zeit ist {now_strftime}. {spoken}"
         chat_messages.append({"role": "user", "content": ask_llm})
         # answer = ai_client.ask_ai_stream(chat_messages)
-        answer = rag_system.check_context(chat_messages)
+        answer = rag_system.check_context(chat_messages, personalitySystemPrompt, user_language, formatted_date)
         function_call = tools.parse_function_call(answer)
         if function_call:
             tts.add_to_queue(function_call["name"])
@@ -109,7 +109,7 @@ def llm_request_and_or_execute_function(spoken):
 
 
 async def main():
-    keyboard_or_microphone = "keyboard"  # microphone or keyboard
+    keyboard_or_microphone = "microphone"  # microphone or keyboard
 
     thread = threading.Thread(target=tts.talking_worker)
     thread.daemon = False

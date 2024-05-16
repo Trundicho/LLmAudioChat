@@ -4,10 +4,9 @@ import torch
 from sentence_transformers import util
 
 from src.ai.clients.ai_client_factory import AiClientFactory
-from src.ai.clients.llm_vision import LlmVisionOpenAi
 from src.ai.rag.tools.tools import Tools
-
 from src.tools.timer.timer import Timer
+from datetime import datetime
 
 
 class RagSystem:
@@ -22,7 +21,6 @@ class RagSystem:
         self.ai_client = AiClientFactory().create_ai_client(tts)
         self.embeddings_client = AiClientFactory().create_embeddings_client()
         self.timer = Timer()
-        self.vision = LlmVisionOpenAi()
 
     def get_embedding(self, data_array):
         return torch.tensor(self.embeddings_client.create_embeddings(data_array))
@@ -52,8 +50,15 @@ class RagSystem:
     # Check context: What's my favorite place?
     # Check context: What do I like to eat the most?
 
-    def check_context(self, messages):
+    def check_context(self, messages, personality_system_prompt="", user_language="German", formatted_date=None):
         user_message = messages[len(messages) - 1]["content"]
+        system_message = f"{personality_system_prompt}. Deine Hauptsprache ist {user_language} und du antwotest immer auf " \
+                         f"{user_language}. " \
+                         f"Das heutige Datum ist {formatted_date}.\n\n"
+        system_message += self.tools.get_function_system_message(user_message)
+        messages.pop(0)
+        messages.insert(0, {"role": "system", "content": system_message})
+
         relevant_context = self.get_relevant_context(user_message, 3)
         if relevant_context:
             context_str = "\n\n".join(relevant_context)
@@ -71,9 +76,12 @@ class RagSystem:
             system_message = (f"You are an AI Agent that is an expert in following instructions. "
                               f"You will engage in conversation and provide relevant information to the "
                               f"best of your knowledge. ")
-            system_message += self.tools.get_function_system_message()
+            system_message += self.tools.get_function_system_message(messages[len(messages) - 1])
             messages.insert(0, {"role": "system", "content": system_message})
-        message_content = self.check_context(messages)
+        now = datetime.now()
+        formatted_date = now.strftime("%A %d %B %Y")
+        message_content = self.check_context(messages, user_language="english", formatted_date=formatted_date)
+        print(message_content)
         function_call = self.tools.parse_function_call(message_content)
         if function_call:
             return self.execute_function_call(function_call)
@@ -107,8 +115,8 @@ class RagSystem:
             elif function_name == "stop_timer":
                 self.tools.stop_timer()
                 return f"The timer has been stopped."
-            elif function_name == "answer_question_with_vision":
-                answer = self.tools.answer_question_with_vision(**function_arguments)
+            elif function_name == "use_camera":
+                answer = self.tools.use_camera(**function_arguments)
                 self.conversation_history.append(
                     {"role": "assistant", "content": answer})
                 if self.tts is not None:

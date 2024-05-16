@@ -1,0 +1,6 @@
+*function:stop_timer*
+Only if user's input contains the words "stop timer" or something similar, generate a
+function call in the following format:
+<functioncall>{{"name": "stop_timer"}}</functioncall>
+
+Example: user: stop the timer

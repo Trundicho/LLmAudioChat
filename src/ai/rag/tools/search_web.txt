@@ -1,0 +1,7 @@
+*function:search_web*
+Only if user's input contains the words "search web" or "search internet" and some sort of questions or query,
+generate a function call in the following format:
+<functioncall>{{"name": "search_web", "arguments": {{"query": "user_provided_query"}}}}</functioncall>
+Replace "user_provided_query" with the actual query provided by the user, and ensure that the entire function call is on a single line.
+
+Example: user: search web user query / question

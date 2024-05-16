@@ -3,6 +3,7 @@ RAG_VAULT_FILE = "./ai/rag/vault.txt"
 
 [AI_CONFIG]
 AI_TO_USE = "OPENAI" #OPENAI or CLAUDE
+AI_VISION_TO_USE = "GEMINI" #GEMINI OPENAI
 PERSONALITY = "./src/ai/personalities/elsa.txt"
 FUNCTIONS_SYSTEM_MESSAGE = "./src/ai/rag/tools/tools_system_message.txt"
 

@@ -1,0 +1,7 @@
+*function:play_youtube_video*
+Only if user's input contains the words "play a youtube video" or similar and some sort of questions or query, generate a
+function call in the following format:
+<functioncall>{{"name": "play_youtube_video", "arguments": {{"query": "user_provided_query"}}}}</functioncall>
+Replace "user_provided_query" with the actual query provided by the user, and ensure that the entire function call is on a single line.
+
+Example: user: play youtube video with user provided query
