@@ -6,16 +6,18 @@ import vertexai
 from vertexai.generative_models import GenerativeModel
 
 from src.ai.clients.ai_client import IOpenAiClient
+from src.audio_chat_config import AudioChatConfig
 
 
 class GeminiClient(IOpenAiClient):
     def __init__(self, tts=None):
         print("init gemini")
-        vertexai.init(project="grain-defense-36857560", location="us-central1")  # us-central1 europe-west3
+        config = AudioChatConfig().get_config()
+        vertexai.init(project=config["VERTEXAI"]["PROJECTID"], location=config["VERTEXAI"]["REGION"])
         self.tts = tts
         self.system_prompt = None
         self.model = None
-        self.model_id = "gemini-1.5-flash-preview-0514" #gemini-1.5-flash-preview-0514 gemini-1.5-pro-preview-0409 gemini-1.0-pro-001
+        self.model_id = config["VERTEXAI"]["GEMINI_MODEL_ID"]
 
 
     def ask_ai_stream(self, messages):

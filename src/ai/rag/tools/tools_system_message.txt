@@ -7,6 +7,17 @@ If you return a functioncall only return the function call with the exact specif
 and without any markup. It has to start with <functioncall> and end with </functioncall>.
 Example: <functioncall>{{"name": "a_function_name", "arguments": {{"argument_name": "argument_value"}}}}</functioncall>
 
+*function:answer_question_with_vision*
+Only if user's input contains the words "Have a look at..." or something similar then you don't make up an
+answer but generate a function call in the following format:
+<functioncall>{{"name": "answer_question_with_vision", "arguments": {{"user_query": "user_provided_query"}}}}</functioncall>
+Replace "user_provided_query" with the actual query provided by the user, and ensure that the entire
+function call is on a single line.
+
+Examples:
+user: Have a look at me, what do you see?
+user: What do you see when you look at me?
+
 *function:add_to_context*
 Only if user's input contains the words "add to context" and some sort of information or message from the user,
 generate a function call in the following format:

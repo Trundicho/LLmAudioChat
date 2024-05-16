@@ -1,19 +1,16 @@
-pyAudio~=0.2.14
 openai-whisper
 openai~=1.11.1
 SpeechRecognition
 anthropic~=0.21.3
-faster_whisper
 curl_cffi
 google-auth
-pyautogui~=0.9.54
 toml~=0.10.2
 vertexai~=1.49.0
 playsound~=1.3.0
 torch~=2.2.2
-orjson~=3.9.13
+orjson~=3.9.15
 numpy~=1.26.3
-pip~=23.2.1
+pip~=23.3
 attrs~=23.2.0
 distro~=1.9.0
 wheel~=0.41.2
@@ -53,3 +50,4 @@ pycparser~=2.22
 zipp~=3.17.0
 seaborn~=0.13.2
 mlx~=0.10.0
+opencv-python-headless~=4.9.0.80

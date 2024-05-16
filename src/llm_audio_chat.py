@@ -8,6 +8,7 @@ from openai import OpenAI
 
 from ai.clients.ai_client_factory import AiClientFactory
 from ai.rag.functions_rag_system import RagSystem
+from src.ai.rag.tools.tools import Tools
 from src.processing.text_to_speech import TextToSpeech
 from src.processing.voice_to_text_factory import VoiceToTextFactory
 from src.tools.search.search import AudioChatConfig
@@ -40,11 +41,13 @@ def open_file(filepath):
 
 
 tts = TextToSpeech()
-rag_system = RagSystem(config["STORAGE"]["RAG_VAULT_FILE"], tts)
+rag_vault_file = config["STORAGE"]["RAG_VAULT_FILE"]
+rag_system = RagSystem(rag_vault_file, tts)
 ai_client = AiClientFactory().create_ai_client(tts)
 
 personalitySystemPrompt = open_file(config["AI_CONFIG"]["PERSONALITY"])
-rag_function_system_message = rag_system.get_function_system_message(config["AI_CONFIG"]["FUNCTIONS_SYSTEM_MESSAGE"])
+tools = Tools(rag_vault_file)
+rag_function_system_message = tools.get_function_system_message(config["AI_CONFIG"]["FUNCTIONS_SYSTEM_MESSAGE"])
 system_message = personalitySystemPrompt + f" Deine Hauptsprache ist {user_language} und du antwotest immer auf " \
                                            f"{user_language}. " \
                                            f"Das heutige Datum ist {formatted_date}.\n\n" + rag_function_system_message
@@ -92,7 +95,7 @@ def llm_request_and_or_execute_function(spoken):
         chat_messages.append({"role": "user", "content": ask_llm})
         # answer = ai_client.ask_ai_stream(chat_messages)
         answer = rag_system.check_context(chat_messages)
-        function_call = rag_system.parse_function_call(answer)
+        function_call = tools.parse_function_call(answer)
         if function_call:
             tts.add_to_queue(function_call["name"])
             function_result = rag_system.execute_function_call(function_call)
@@ -106,7 +109,7 @@ def llm_request_and_or_execute_function(spoken):
 
 
 async def main():
-    keyboard_or_microphone = "microphone"  # microphone or keyboard
+    keyboard_or_microphone = "keyboard"  # microphone or keyboard
 
     thread = threading.Thread(target=tts.talking_worker)
     thread.daemon = False

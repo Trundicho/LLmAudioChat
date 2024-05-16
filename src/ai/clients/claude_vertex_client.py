@@ -11,7 +11,7 @@ class ClaudeVertex(IOpenAiClient):
     def __init__(self, tts=None):
         print("init claude")
         config = AudioChatConfig().get_config()
-        self.claude_model_id = config["VERTEXAI"]["MODEL_ID"]
+        self.claude_model_id = config["VERTEXAI"]["CLAUDE_MODEL_ID"]
         self.client = AnthropicVertex(region=config["VERTEXAI"]["REGION"], project_id=config["VERTEXAI"][
             "PROJECTID"])
 
@@ -29,7 +29,6 @@ class ClaudeVertex(IOpenAiClient):
                 messages_copy.pop(messages_copy.index(m))
 
         try:
-            # reverse = messages_copy[::-1]
             message = self.client.messages.create(
                 max_tokens=4096,
                 messages=messages_copy,
