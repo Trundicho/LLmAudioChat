@@ -9,7 +9,6 @@ import torch
 from sentence_transformers import util
 
 from src.ai.clients.ai_client_factory import AiClientFactory
-from src.ai.clients.gemini_client import GeminiClient
 from src.ai.clients.llm_vision import LlmVision
 from src.ai.rag.tools.audiochat_functions import AudioChatFunctions
 from src.audio_chat_config import AudioChatConfig
@@ -41,7 +40,7 @@ class Tools:
             array_of_functions.append(self.audio_chat_functions.get_function_system_message(function.get("name")))
         self.functions_embedding = self.get_embedding(array_of_functions)
 
-    def get_relevant_functions(self, user_message, top_k=3, threshold=0.2):
+    def get_relevant_functions(self, user_message, top_k=4, threshold=0.2):
         input_embedding = self.get_embedding([user_message])
         cos_scores = util.cos_sim(input_embedding, self.functions_embedding)[0]
         top_k = min(top_k, len(cos_scores))

@@ -27,7 +27,10 @@ class GeminiClient(IOpenAiClient):
 
     def ask_ai_stream_with_image(self, user_query, image):
         if self.model is None:
-            self.model = GenerativeModel(self.model_id, system_instruction=self.system_prompt)
+            self.model = GenerativeModel(self.model_id, system_instruction="Du bist ein hilfreicher Assistent der "
+                                                                           "Fotos analysiert und dabei kurz die "
+                                                                           "Fragen des Benutzers auf deutsch "
+                                                                           "beantwortet.")
         image1 = Part.from_data(mime_type="image/png", data=base64.b64decode(image))
         responses = self.model.generate_content(
             [image1, user_query],
