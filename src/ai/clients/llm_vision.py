@@ -28,6 +28,9 @@ class LlmVision:
         cap = cv2.VideoCapture(0)
         ret, frame = cap.read()
         cap.release()
+        return self.encode_base64(frame)
+
+    def encode_base64(self, frame):
         cv2.imwrite("captured_image.png", frame)
         _, buffer = cv2.imencode('.png', frame)
         return base64.b64encode(buffer).decode('utf-8')

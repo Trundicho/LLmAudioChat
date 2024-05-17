@@ -94,7 +94,7 @@ class GeminiClient(IOpenAiClient):
         return answer
 
     def my_chat(self, messages, functions):
-        return self.inference2(messages)
+        return self.inference2(messages[len(messages) - 1]["content"])
 
     def inference(self, prompt: str) -> str:
         loop = asyncio.new_event_loop()

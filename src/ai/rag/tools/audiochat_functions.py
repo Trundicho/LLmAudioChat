@@ -2,7 +2,8 @@ class AudioChatFunctions:
     def __init__(self):
         root = "src/ai/rag/tools/"
         self.functions_map = {
-            "use_camera": self.open_file(f"{root}use_camera.txt"),
+            "use_screenshot_to_answer_question": self.open_file(f"{root}use_screenshot.txt"),
+            "use_camera_to_answer_question": self.open_file(f"{root}use_camera.txt"),
             "add_to_context": self.open_file(f"{root}add_to_context.txt"),
             "play_youtube_video": self.open_file(f"{root}play_youtube_video.txt"),
             "stop_youtube_video": self.open_file(f"{root}stop_youtube_video.txt"),

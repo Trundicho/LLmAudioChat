@@ -1,3 +1,5 @@
+import base64
+import io
 import json
 import re
 import time
@@ -6,6 +8,7 @@ from datetime import datetime
 
 import pyautogui
 import torch
+from PIL.Image import Image
 from sentence_transformers import util
 
 from src.ai.clients.ai_client_factory import AiClientFactory
@@ -32,7 +35,8 @@ class Tools:
             self.convert_to_openai_function(self.stop_youtube_video),
             self.convert_to_openai_function(self.start_timer),
             self.convert_to_openai_function(self.stop_timer),
-            self.convert_to_openai_function(self.use_camera)
+            self.convert_to_openai_function(self.use_camera_to_answer_question),
+            self.convert_to_openai_function(self.use_screenshot_to_answer_question)
         ]
         self.tools_system_message = self.open_file(tools_system_message_file)
         array_of_functions = []
@@ -113,9 +117,25 @@ class Tools:
     def stop_timer(self):
         self.timer.stop()
 
-    def use_camera(self, user_query):
+    def use_camera_to_answer_question(self, user_query):
         image = self.vision.capture_and_encode()
         return self.vision.ask_llm_with_image(image, user_query)
+
+    def use_screenshot_to_answer_question(self, user_query):
+        region = (0, 0, 1280, 1024)
+        screenshot = pyautogui.screenshot(region=region)
+        screenshot.save("screenshot_region.png")
+        screenshot.close()
+        image = self.pil_image_to_base64(screenshot)
+        return self.vision.ask_llm_with_image(image, user_query)
+
+    def pil_image_to_base64(self, image: Image):
+        buffer = io.BytesIO()
+        image.save(buffer, format='PNG')
+        base64_img = base64.b64encode(buffer.getvalue()).decode()
+
+        # Return the base64 string
+        return base64_img
 
     def convert_to_openai_function(self, func):
         return {

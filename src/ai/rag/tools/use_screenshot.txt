@@ -1,0 +1,9 @@
+*function:use_screenshot_to_answer_question*
+Only if user's input contains the words "Take a screenshot" or something similar then you
+don't make up an answer but generate a function call in the following format:
+<functioncall>{{"name": "use_screenshot_to_answer_question", "arguments": {{"user_query": "user_provided_query"}}}}</functioncall>
+Important: Replace "user_provided_query" with the query provided by the user. Exclude the words of the
+query where the user says "Take a screenshot".
+Ensure that the entire function call is on a single line.
+
+Example: user: Take a screenshot, what do you see?

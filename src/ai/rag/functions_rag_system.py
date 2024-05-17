@@ -96,10 +96,12 @@ class RagSystem:
             if function_name == "search_web":
                 search_result = self.tools.search_web(**function_arguments)
                 print(f"Added {len(search_result)} top search results to the context.")
-                self.conversation_history.append(
-                    {"role": "user", "content": "Web search results: " + function_arguments["query"]})
-                resp = self.ai_client.my_chat(self.conversation_history, [])
-                return resp
+                answer = (f"Ich habe {len(search_result)} Web Suchergebnisse zum Kontext hinzugefügt. Gesucht habe "
+                          f"ich nach: {function_arguments['query']}")
+                self.conversation_history.append({"role": "assistant", "content": answer})
+                if self.tts is not None:
+                    self.tts.add_to_queue(answer)
+                return answer
             elif function_name == "play_youtube_video":
                 played_youtube_video = self.tools.play_youtube_video(**function_arguments)
                 return f"The following video has been played: {played_youtube_video}."
@@ -115,8 +117,15 @@ class RagSystem:
             elif function_name == "stop_timer":
                 self.tools.stop_timer()
                 return f"The timer has been stopped."
-            elif function_name == "use_camera":
-                answer = self.tools.use_camera(**function_arguments)
+            elif function_name == "use_camera_to_answer_question":
+                answer = self.tools.use_camera_to_answer_question(**function_arguments)
+                self.conversation_history.append(
+                    {"role": "assistant", "content": answer})
+                if self.tts is not None:
+                    self.tts.add_to_queue(answer)
+                return answer
+            elif function_name == "use_screenshot_to_answer_question":
+                answer = self.tools.use_screenshot_to_answer_question(**function_arguments)
                 self.conversation_history.append(
                     {"role": "assistant", "content": answer})
                 if self.tts is not None:
