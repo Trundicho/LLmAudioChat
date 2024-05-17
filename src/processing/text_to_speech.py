@@ -31,3 +31,7 @@ class TextToSpeech:
 
     def add_to_queue(self, new_text):
         self.talking_queue.put(lambda text=new_text: self.text_to_speech(text))
+
+
+# text_to_speech = TextToSpeech()
+# text_to_speech.talking_worker()

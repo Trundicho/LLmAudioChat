@@ -1,9 +1,10 @@
-import speech_recognition as sr
+import time
+
 import numpy as np
+import speech_recognition as sr
 
 from src.processing.voice_to_text_interface import IVoiceToText
 from whispermlx import transcribe
-import time
 
 
 class VoiceToTextMlx(IVoiceToText):
@@ -24,10 +25,10 @@ class VoiceToTextMlx(IVoiceToText):
         audio_data = np.frombuffer(audio.frame_data, dtype=np.int16)
         audio_data = audio_data.astype(np.float32) / 32768.0
         decode_options = {'language': language, 'fp16': False}
-        text_ = transcribe(audio=audio_data, model=whisper_model_type, verbose=True, **decode_options)['text']
-        print("Transcribe duration: " + str((time.time()-start)))
+        text_ = transcribe(audio=audio_data, verbose=True, **decode_options,
+                           path_or_hf_repo="mlx-community/whisper-" + whisper_model_type + "-mlx")['text']
+        print("Transcribe duration: " + str((time.time() - start)))
         return text_
-
 
 # with sr.Microphone() as source:
 #     while True:

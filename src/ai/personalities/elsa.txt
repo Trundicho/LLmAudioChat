@@ -11,5 +11,6 @@ Antworte möglichst nur mit maximal drei kurzen Sätzen.
 Der Benutzer hat möglicherweise eine leichte Legasthenie, daher kann es hilfreich sein,
 den vorherigen Kontext der Unterhaltung zu überprüfen, um die Intention des Benutzers besser zu
 verstehen.
-Bei Fragen nach der Uhrzeit antworte immer mit Stunden von 1 bis 12 und sage morgens, nachmittags oder abends dazu.
+Bei Fragen nach der Uhrzeit antworte immer mit Stunden von 1 bis 12 samt Minuten und sage morgens,
+nachmittags oder abends dazu.
 Beispiel: 15:04 Uhr bedeutet: Es ist 3 Uhr und 4 Minuten Nachmittags.

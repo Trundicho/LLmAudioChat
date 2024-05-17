@@ -28,6 +28,7 @@ class Timer:
 
     def check(self):
         while True:
+            time.sleep(0.1)
             if self.is_running:
                 elapsed_time = time.time() - self.start_time
 
@@ -38,5 +39,3 @@ class Timer:
                 if elapsed_time >= 20:
                     self.stop()
                     return
-
-                time.sleep(0.1)

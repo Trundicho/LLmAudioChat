@@ -49,5 +49,5 @@ idna~=3.6
 pycparser~=2.22
 zipp~=3.17.0
 seaborn~=0.13.2
-mlx~=0.10.0
+mlx~=0.13.1
 opencv-python-headless~=4.9.0.80

@@ -1,11 +1,12 @@
 # Copyright © 2023 Apple Inc.
 
+import sys
+import warnings
+from typing import List, Optional, Tuple, Union
+
 import mlx.core as mx
 import numpy as np
-import sys
-from typing import Optional, Tuple, Union
 import tqdm
-
 
 from .audio import (
     FRAMES_PER_SECOND,
@@ -18,7 +19,8 @@ from .audio import (
 )
 from .decoding import DecodingOptions, DecodingResult
 from .load_models import load_model
-from .tokenizer import LANGUAGES, TO_LANGUAGE_CODE, get_tokenizer
+from .timing import add_word_timestamps
+from .tokenizer import LANGUAGES, get_tokenizer
 
 
 def _format_timestamp(seconds: float):
@@ -38,22 +40,29 @@ def _format_timestamp(seconds: float):
     return f"{hours_marker}{minutes:02d}:{seconds:02d}.{milliseconds:03d}"
 
 
+def _get_end(segments: List[dict]) -> Optional[float]:
+    return next(
+        (w["end"] for s in reversed(segments) for w in reversed(s["words"])),
+        segments[-1]["end"] if segments else None,
+    )
+
+
 class ModelHolder:
     model = None
-    model_name = None
+    model_path = None
 
     @classmethod
-    def get_model(cls, model: str):
-        if cls.model is None or model != cls.model_name:
-            cls.model = load_model(model)
-            cls.model_name = model
+    def get_model(cls, model_path: str, dtype: mx.Dtype):
+        if cls.model is None or model_path != cls.model_path:
+            cls.model = load_model(model_path, dtype=dtype)
+            cls.model_path = model_path
         return cls.model
 
 
 def transcribe(
     audio: Union[str, np.ndarray, mx.array],
     *,
-    model: str = "tiny",
+    path_or_hf_repo: str = "mlx-community/whisper-tiny",
     verbose: Optional[bool] = None,
     temperature: Union[float, Tuple[float, ...]] = (0.0, 0.2, 0.4, 0.6, 0.8, 1.0),
     compression_ratio_threshold: Optional[float] = 2.4,
@@ -61,8 +70,11 @@ def transcribe(
     no_speech_threshold: Optional[float] = 0.6,
     condition_on_previous_text: bool = True,
     initial_prompt: Optional[str] = None,
+    word_timestamps: bool = False,
     prepend_punctuations: str = "\"'“¿([{-",
     append_punctuations: str = "\"'.。,，!！?？:：”)]}、",
+    clip_timestamps: Union[str, List[float]] = "0",
+    hallucination_silence_threshold: Optional[float] = None,
     **decode_options,
 ):
     """
@@ -73,9 +85,8 @@ def transcribe(
     audio: Union[str, np.ndarray, mx.array]
         The path to the audio file to open, or the audio waveform
 
-    model: str
-        The Whisper model. Can be any of ["tiny", "base", "small", "medium", "large"].
-        Default is "tiny".
+    path_or_hf_repo: str
+        The localpath to the Whisper model or HF Hub repo with the MLX converted weights.
 
     verbose: bool
         Whether to display the text being decoded to the console. If True, displays all the details,
@@ -100,6 +111,16 @@ def transcribe(
         disabling may make the text inconsistent across windows, but the model becomes less prone to
         getting stuck in a failure loop, such as repetition looping or timestamps going out of sync.
 
+    word_timestamps: bool
+        Extract word-level timestamps using the cross-attention pattern and dynamic time warping,
+        and include the timestamps for each word in each segment.
+
+    prepend_punctuations: str
+        If word_timestamps is True, merge these punctuation symbols with the next word
+
+    append_punctuations: str
+        If word_timestamps is True, merge these punctuation symbols with the previous word
+
     initial_prompt: Optional[str]
         Optional text to provide as a prompt for the first window. This can be used to provide, or
         "prompt-engineer" a context for transcription, e.g. custom vocabularies or proper nouns
@@ -108,19 +129,27 @@ def transcribe(
     decode_options: dict
         Keyword arguments to construct `DecodingOptions` instances
 
+    clip_timestamps: Union[str, List[float]]
+        Comma-separated list start,end,start,end,... timestamps (in seconds) of clips to process.
+        The last end timestamp defaults to the end of the file.
+
+    hallucination_silence_threshold: Optional[float]
+        When word_timestamps is True, skip silent periods longer than this threshold (in seconds)
+        when a possible hallucination is detected
+
     Returns
     -------
     A dictionary containing the resulting text ("text") and segment-level details ("segments"), and
     the spoken language ("language"), which is detected when `decode_options["language"]` is None.
     """
 
-    model = ModelHolder.get_model(model)
-
-    dtype = mx.float16 if decode_options.get("fp16", False) else mx.float32
+    dtype = mx.float16 if decode_options.get("fp16", True) else mx.float32
+    model = ModelHolder.get_model(path_or_hf_repo, dtype)
 
     # Pad 30-seconds of silence to the input audio, for slicing
-    mel = log_mel_spectrogram(audio, padding=N_SAMPLES)
+    mel = log_mel_spectrogram(audio, n_mels=model.dims.n_mels, padding=N_SAMPLES)
     content_frames = mel.shape[-2] - N_FRAMES
+    content_duration = float(content_frames * HOP_LENGTH / SAMPLE_RATE)
 
     if verbose:
         system_encoding = sys.getdefaultencoding()
@@ -150,7 +179,28 @@ def transcribe(
 
     language: str = decode_options["language"]
     task: str = decode_options.get("task", "transcribe")
-    tokenizer = get_tokenizer(model.is_multilingual, language=language, task=task)
+    tokenizer = get_tokenizer(
+        model.is_multilingual,
+        num_languages=model.num_languages,
+        language=language,
+        task=task,
+    )
+
+    if isinstance(clip_timestamps, str):
+        clip_timestamps = [
+            float(ts) for ts in (clip_timestamps.split(",") if clip_timestamps else [])
+        ]
+    seek_points: List[int] = [round(ts * FRAMES_PER_SECOND) for ts in clip_timestamps]
+    if len(seek_points) == 0:
+        seek_points.append(0)
+    if len(seek_points) % 2 == 1:
+        seek_points.append(content_frames)
+    seek_clips: List[Tuple[int, int]] = list(zip(seek_points[::2], seek_points[1::2]))
+
+    punctuation = "\"'“¿([{-\"'.。,，!！?？:：”)]}、"
+
+    if word_timestamps and task == "translate":
+        warnings.warn("Word-level timestamps on translations may not be reliable.")
 
     def decode_with_fallback(segment: mx.array) -> DecodingResult:
         temperatures = (
@@ -192,7 +242,8 @@ def transcribe(
 
         return decode_result
 
-    seek = 0
+    clip_idx = 0
+    seek = seek_clips[clip_idx][0]
     input_stride = N_FRAMES // model.dims.n_audio_ctx  # mel frames per output token: 2
     time_precision = (
         input_stride * HOP_LENGTH / SAMPLE_RATE
@@ -229,129 +280,258 @@ def transcribe(
         total=content_frames, unit="frames", disable=verbose is not False
     ) as pbar:
         last_speech_timestamp = 0.0
-        while seek < content_frames:
-            time_offset = float(seek * HOP_LENGTH / SAMPLE_RATE)
-            mel_segment = mel[seek : seek + N_FRAMES]
-            segment_size = min(N_FRAMES, content_frames - seek)
-            segment_duration = segment_size * HOP_LENGTH / SAMPLE_RATE
-            mel_segment = pad_or_trim(mel_segment, N_FRAMES, axis=-2).astype(dtype)
+        for seek_clip_start, seek_clip_end in seek_clips:
+            while seek < seek_clip_end:
+                time_offset = float(seek * HOP_LENGTH / SAMPLE_RATE)
+                window_end_time = float((seek + N_FRAMES) * HOP_LENGTH / SAMPLE_RATE)
+                segment_size = min(
+                    N_FRAMES, content_frames - seek, seek_clip_end - seek
+                )
+                mel_segment = mel[seek : seek + segment_size]
+                segment_duration = segment_size * HOP_LENGTH / SAMPLE_RATE
+                mel_segment = pad_or_trim(mel_segment, N_FRAMES, axis=-2).astype(dtype)
 
-            decode_options["prompt"] = all_tokens[prompt_reset_since:]
-            result: DecodingResult = decode_with_fallback(mel_segment)
-            tokens = np.array(result.tokens)
+                decode_options["prompt"] = all_tokens[prompt_reset_since:]
+                result: DecodingResult = decode_with_fallback(mel_segment)
+                tokens = np.array(result.tokens)
 
-            if no_speech_threshold is not None:
-                # no voice activity check
-                should_skip = result.no_speech_prob > no_speech_threshold
-                if (
-                    logprob_threshold is not None
-                    and result.avg_logprob > logprob_threshold
-                ):
-                    # don't skip if the logprob is high enough, despite the no_speech_prob
-                    should_skip = False
+                if no_speech_threshold is not None:
+                    # no voice activity check
+                    should_skip = result.no_speech_prob > no_speech_threshold
+                    if (
+                        logprob_threshold is not None
+                        and result.avg_logprob > logprob_threshold
+                    ):
+                        # don't skip if the logprob is high enough, despite the no_speech_prob
+                        should_skip = False
 
-                if should_skip:
-                    seek += segment_size  # fast-forward to the next segment boundary
-                    continue
+                    if should_skip:
+                        seek += (
+                            segment_size  # fast-forward to the next segment boundary
+                        )
+                        continue
 
-            previous_seek = seek
-            current_segments = []
+                previous_seek = seek
+                current_segments = []
 
-            timestamp_tokens = tokens >= tokenizer.timestamp_begin
-            single_timestamp_ending = timestamp_tokens[-2:].tolist() == [False, True]
+                # anomalous words are very long/short/improbable
+                def word_anomaly_score(word: dict) -> float:
+                    probability = word.get("probability", 0.0)
+                    duration = word["end"] - word["start"]
+                    score = 0.0
+                    if probability < 0.15:
+                        score += 1.0
+                    if duration < 0.133:
+                        score += (0.133 - duration) * 15
+                    if duration > 2.0:
+                        score += duration - 2.0
+                    return score
 
-            consecutive = np.where(
-                np.logical_and(timestamp_tokens[:-1], timestamp_tokens[1:])
-            )[0]
-            consecutive += 1
-            if len(consecutive) > 0:
-                # if the output contains two consecutive timestamp tokens
-                slices = consecutive.tolist()
-                if single_timestamp_ending:
-                    slices.append(len(tokens))
+                def is_segment_anomaly(segment: Optional[dict]) -> bool:
+                    if segment is None or not segment["words"]:
+                        return False
+                    words = [
+                        w for w in segment["words"] if w["word"] not in punctuation
+                    ]
+                    words = words[:8]
+                    score = sum(word_anomaly_score(w) for w in words)
+                    return score >= 3 or score + 0.01 >= len(words)
 
-                last_slice = 0
-                for current_slice in slices:
-                    sliced_tokens = tokens[last_slice:current_slice]
-                    start_timestamp_pos = (
-                        sliced_tokens[0].item() - tokenizer.timestamp_begin
-                    )
-                    end_timestamp_pos = (
-                        sliced_tokens[-1].item() - tokenizer.timestamp_begin
-                    )
+                def next_words_segment(segments: List[dict]) -> Optional[dict]:
+                    return next((s for s in segments if s["words"]), None)
+
+                timestamp_tokens = tokens >= tokenizer.timestamp_begin
+                single_timestamp_ending = timestamp_tokens[-2:].tolist() == [
+                    False,
+                    True,
+                ]
+
+                consecutive = np.where(
+                    np.logical_and(timestamp_tokens[:-1], timestamp_tokens[1:])
+                )[0]
+                consecutive += 1
+                if len(consecutive) > 0:
+                    # if the output contains two consecutive timestamp tokens
+                    slices = consecutive.tolist()
+                    if single_timestamp_ending:
+                        slices.append(len(tokens))
+
+                    last_slice = 0
+                    for current_slice in slices:
+                        sliced_tokens = tokens[last_slice:current_slice]
+                        start_timestamp_pos = (
+                            sliced_tokens[0].item() - tokenizer.timestamp_begin
+                        )
+                        end_timestamp_pos = (
+                            sliced_tokens[-1].item() - tokenizer.timestamp_begin
+                        )
+                        current_segments.append(
+                            new_segment(
+                                start=time_offset
+                                + start_timestamp_pos * time_precision,
+                                end=time_offset + end_timestamp_pos * time_precision,
+                                tokens=sliced_tokens,
+                                result=result,
+                            )
+                        )
+                        last_slice = current_slice
+
+                    if single_timestamp_ending:
+                        # single timestamp at the end means no speech after the last timestamp.
+                        seek += segment_size
+                    else:
+                        # otherwise, ignore the unfinished segment and seek to the last timestamp
+                        last_timestamp_pos = (
+                            tokens[last_slice - 1].item() - tokenizer.timestamp_begin
+                        )
+                        seek += last_timestamp_pos * input_stride
+                else:
+                    duration = segment_duration
+                    timestamps = tokens[timestamp_tokens.nonzero()[0]]
+                    if (
+                        len(timestamps) > 0
+                        and timestamps[-1].item() != tokenizer.timestamp_begin
+                    ):
+                        # no consecutive timestamps but it has a timestamp; use the last one.
+                        last_timestamp_pos = (
+                            timestamps[-1].item() - tokenizer.timestamp_begin
+                        )
+                        duration = last_timestamp_pos * time_precision
+
                     current_segments.append(
                         new_segment(
-                            start=time_offset + start_timestamp_pos * time_precision,
-                            end=time_offset + end_timestamp_pos * time_precision,
-                            tokens=sliced_tokens,
+                            start=time_offset,
+                            end=time_offset + duration,
+                            tokens=tokens,
                             result=result,
                         )
                     )
-                    last_slice = current_slice
-
-                if single_timestamp_ending:
-                    # single timestamp at the end means no speech after the last timestamp.
                     seek += segment_size
-                else:
-                    # otherwise, ignore the unfinished segment and seek to the last timestamp
-                    last_timestamp_pos = (
-                        tokens[last_slice - 1].item() - tokenizer.timestamp_begin
-                    )
-                    seek += last_timestamp_pos * input_stride
-            else:
-                duration = segment_duration
-                timestamps = tokens[timestamp_tokens.nonzero()[0]]
-                if (
-                    len(timestamps) > 0
-                    and timestamps[-1].item() != tokenizer.timestamp_begin
-                ):
-                    # no consecutive timestamps but it has a timestamp; use the last one.
-                    last_timestamp_pos = (
-                        timestamps[-1].item() - tokenizer.timestamp_begin
-                    )
-                    duration = last_timestamp_pos * time_precision
 
-                current_segments.append(
-                    new_segment(
-                        start=time_offset,
-                        end=time_offset + duration,
-                        tokens=tokens,
-                        result=result,
+                if word_timestamps:
+                    add_word_timestamps(
+                        segments=current_segments,
+                        model=model,
+                        tokenizer=tokenizer,
+                        mel=mel_segment,
+                        num_frames=segment_size,
+                        prepend_punctuations=prepend_punctuations,
+                        append_punctuations=append_punctuations,
+                        last_speech_timestamp=last_speech_timestamp,
                     )
+
+                    if not single_timestamp_ending:
+                        last_word_end = _get_end(current_segments)
+                        if last_word_end is not None and last_word_end > time_offset:
+                            seek = round(last_word_end * FRAMES_PER_SECOND)
+
+                    # skip silence before possible hallucinations
+                    if hallucination_silence_threshold is not None:
+                        threshold = hallucination_silence_threshold
+                        if not single_timestamp_ending:
+                            last_word_end = _get_end(current_segments)
+                            if (
+                                last_word_end is not None
+                                and last_word_end > time_offset
+                            ):
+                                remaining_duration = window_end_time - last_word_end
+                                if remaining_duration > threshold:
+                                    seek = round(last_word_end * FRAMES_PER_SECOND)
+                                else:
+                                    seek = previous_seek + segment_size
+
+                        # if first segment might be a hallucination, skip leading silence
+                        first_segment = next_words_segment(current_segments)
+                        if first_segment is not None and is_segment_anomaly(
+                            first_segment
+                        ):
+                            gap = first_segment["start"] - time_offset
+                            if gap > threshold:
+                                seek = previous_seek + round(gap * FRAMES_PER_SECOND)
+                                continue
+
+                        # skip silence before any possible hallucination that is surrounded
+                        # by silence or more hallucinations
+                        hal_last_end = last_speech_timestamp
+                        for si in range(len(current_segments)):
+                            segment = current_segments[si]
+                            if not segment["words"]:
+                                continue
+                            if is_segment_anomaly(segment):
+                                next_segment = next_words_segment(
+                                    current_segments[si + 1 :]
+                                )
+                                if next_segment is not None:
+                                    hal_next_start = next_segment["words"][0]["start"]
+                                else:
+                                    hal_next_start = time_offset + segment_duration
+                                silence_before = (
+                                    segment["start"] - hal_last_end > threshold
+                                    or segment["start"] < threshold
+                                    or segment["start"] - time_offset < 2.0
+                                )
+                                silence_after = (
+                                    hal_next_start - segment["end"] > threshold
+                                    or is_segment_anomaly(next_segment)
+                                    or window_end_time - segment["end"] < 2.0
+                                )
+                                if silence_before and silence_after:
+                                    seek = round(
+                                        max(time_offset + 1, segment["start"])
+                                        * FRAMES_PER_SECOND
+                                    )
+                                    if content_duration - segment["end"] < threshold:
+                                        seek = content_frames
+                                    current_segments[si:] = []
+                                    break
+                            hal_last_end = segment["end"]
+
+                    last_word_end = _get_end(current_segments)
+                    if last_word_end is not None:
+                        last_speech_timestamp = last_word_end
+
+                if verbose:
+                    for segment in current_segments:
+                        start, end, text = (
+                            segment["start"],
+                            segment["end"],
+                            segment["text"],
+                        )
+                        line = f"[{_format_timestamp(start)} --> {_format_timestamp(end)}] {text}"
+                        print(make_safe(line))
+
+                # if a segment is instantaneous or does not contain text, clear it
+                for i, segment in enumerate(current_segments):
+                    if (
+                        segment["start"] == segment["end"]
+                        or segment["text"].strip() == ""
+                    ):
+                        segment["text"] = ""
+                        segment["tokens"] = []
+                        segment["words"] = []
+
+                all_segments.extend(
+                    [
+                        {"id": i, **segment}
+                        for i, segment in enumerate(
+                            current_segments, start=len(all_segments)
+                        )
+                    ]
                 )
-                seek += segment_size
+                all_tokens.extend(
+                    [
+                        token
+                        for segment in current_segments
+                        for token in segment["tokens"]
+                    ]
+                )
 
-            if verbose:
-                for segment in current_segments:
-                    start, end, text = segment["start"], segment["end"], segment["text"]
-                    line = f"[{_format_timestamp(start)} --> {_format_timestamp(end)}] {text}"
-                    print(make_safe(line))
+                if not condition_on_previous_text or result.temperature > 0.5:
+                    # do not feed the prompt tokens if a high temperature was used
+                    prompt_reset_since = len(all_tokens)
 
-            # if a segment is instantaneous or does not contain text, clear it
-            for i, segment in enumerate(current_segments):
-                if segment["start"] == segment["end"] or segment["text"].strip() == "":
-                    segment["text"] = ""
-                    segment["tokens"] = []
-                    segment["words"] = []
-
-            all_segments.extend(
-                [
-                    {"id": i, **segment}
-                    for i, segment in enumerate(
-                        current_segments, start=len(all_segments)
-                    )
-                ]
-            )
-            all_tokens.extend(
-                [token for segment in current_segments for token in segment["tokens"]]
-            )
-
-            if not condition_on_previous_text or result.temperature > 0.5:
-                # do not feed the prompt tokens if a high temperature was used
-                prompt_reset_since = len(all_tokens)
-
-            # update progress bar
-            pbar.update(min(content_frames, seek) - previous_seek)
+                # update progress bar
+                pbar.update(min(content_frames, seek) - previous_seek)
 
     return dict(
         text=tokenizer.decode(all_tokens[len(initial_prompt_tokens) :]),

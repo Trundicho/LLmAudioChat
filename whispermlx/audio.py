@@ -3,7 +3,7 @@
 import os
 from functools import lru_cache
 from subprocess import CalledProcessError, run
-from typing import Optional, Union
+from typing import Union
 
 import mlx.core as mx
 import numpy as np
@@ -11,7 +11,6 @@ import numpy as np
 # hard-coded audio hyperparameters
 SAMPLE_RATE = 16000
 N_FFT = 400
-N_MELS = 80
 HOP_LENGTH = 160
 CHUNK_LENGTH = 30
 N_SAMPLES = CHUNK_LENGTH * SAMPLE_RATE  # 480000 samples in a 30-second chunk
@@ -59,7 +58,7 @@ def load_audio(file: str, sr: int = SAMPLE_RATE):
     except CalledProcessError as e:
         raise RuntimeError(f"Failed to load audio: {e.stderr.decode()}") from e
 
-    return np.frombuffer(out, np.int16).flatten().astype(np.float32) / 32768.0
+    return mx.array(np.frombuffer(out, np.int16)).flatten().astype(mx.float32) / 32768.0
 
 
 def pad_or_trim(array, length: int = N_SAMPLES, *, axis: int = -1):
@@ -74,14 +73,13 @@ def pad_or_trim(array, length: int = N_SAMPLES, *, axis: int = -1):
     if array.shape[axis] < length:
         pad_widths = [(0, 0)] * array.ndim
         pad_widths[axis] = (0, length - array.shape[axis])
-        pad_fn = mx.pad if isinstance(array, mx.array) else np.pad
-        array = pad_fn(array, pad_widths)
+        array = mx.pad(array, pad_widths)
 
     return array
 
 
 @lru_cache(maxsize=None)
-def mel_filters(n_mels: int = N_MELS) -> mx.array:
+def mel_filters(n_mels: int) -> mx.array:
     """
     load the mel filterbank matrix for projecting STFT into a Mel spectrogram.
     Allows decoupling librosa dependency; saved using:
@@ -89,9 +87,10 @@ def mel_filters(n_mels: int = N_MELS) -> mx.array:
         np.savez_compressed(
             "mel_filters.npz",
             mel_80=librosa.filters.mel(sr=16000, n_fft=400, n_mels=80),
+            mel_128=librosa.filters.mel(sr=16000, n_fft=400, n_mels=128),
         )
     """
-    assert n_mels == 80, f"Unsupported n_mels: {n_mels}"
+    assert n_mels in {80, 128}, f"Unsupported n_mels: {n_mels}"
 
     filename = os.path.join(os.path.dirname(__file__), "assets", "mel_filters.npz")
     return mx.load(filename)[f"mel_{n_mels}"]
@@ -130,7 +129,7 @@ def stft(x, window, nperseg=256, noverlap=None, nfft=None, axis=-1, pad_mode="re
 
 def log_mel_spectrogram(
     audio: Union[str, np.ndarray],
-    n_mels: int = N_MELS,
+    n_mels: int = 80,
     padding: int = 0,
 ):
     """
@@ -154,9 +153,9 @@ def log_mel_spectrogram(
     """
     device = mx.default_device()
     mx.set_default_device(mx.cpu)
-    if not isinstance(audio, mx.array):
-        if isinstance(audio, str):
-            audio = load_audio(audio)
+    if isinstance(audio, str):
+        audio = load_audio(audio)
+    elif not isinstance(audio, mx.array):
         audio = mx.array(audio)
 
     if padding > 0:
