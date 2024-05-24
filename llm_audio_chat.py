@@ -6,8 +6,8 @@ from datetime import datetime
 import speech_recognition as sr
 from openai import OpenAI
 
-from ai.clients.ai_client_factory import AiClientFactory
-from ai.rag.functions_rag_system import RagSystem
+from src.ai.clients.ai_client_factory import AiClientFactory
+from src.ai.rag.functions_rag_system import RagSystem
 from src.ai.rag.tools.tools import Tools
 from src.processing.text_to_speech import TextToSpeech
 from src.processing.voice_to_text_factory import VoiceToTextFactory
@@ -47,7 +47,9 @@ ai_client = AiClientFactory().create_ai_client(tts)
 
 personalitySystemPrompt = open_file(config["AI_CONFIG"]["PERSONALITY"])
 tools = Tools(rag_vault_file, tts)
-rag_function_system_message = tools.get_function_system_message()
+rag_function_system_message = ""
+if config["AI_CONFIG"]["USE_FUNCTIONS_AND_RAG"] == str(True):
+    rag_function_system_message = tools.get_function_system_message()
 system_message = personalitySystemPrompt + f" Deine Hauptsprache ist {user_language} und du antwotest immer auf " \
                                            f"{user_language}. " \
                                            f"Das heutige Datum ist {formatted_date}.\n\n" + rag_function_system_message
@@ -93,15 +95,18 @@ def llm_request_and_or_execute_function(spoken):
         print(now_strftime)
         ask_llm = f"Die aktuelle Zeit ist {now_strftime}. {spoken}"
         chat_messages.append({"role": "user", "content": ask_llm})
-        # answer = ai_client.ask_ai_stream(chat_messages)
-        answer = rag_system.check_context(chat_messages, personalitySystemPrompt, user_language, formatted_date)
-        function_call = tools.parse_function_call(answer)
-        if function_call:
-            tts.add_to_queue(function_call["name"])
-            function_result = rag_system.execute_function_call(function_call)
-            print(f"Function result: {function_result}")
-            chat_messages.append({"role": "assistant", "content": function_result.strip()})
+        if config["AI_CONFIG"]["USE_FUNCTIONS_AND_RAG"] == str(True):
+            answer = rag_system.check_context(chat_messages, personalitySystemPrompt, user_language, formatted_date)
+            function_call = tools.parse_function_call(answer)
+            if function_call:
+                tts.add_to_queue(function_call["name"])
+                function_result = rag_system.execute_function_call(function_call)
+                print(f"Function result: {function_result}")
+                chat_messages.append({"role": "assistant", "content": function_result.strip()})
+            else:
+                chat_messages.append({"role": "assistant", "content": answer.strip()})
         else:
+            answer = ai_client.ask_ai_stream(chat_messages)
             chat_messages.append({"role": "assistant", "content": answer.strip()})
         stop_time = time.time()
         print("LLM + Rag duration: " + str(stop_time - start_time))
@@ -109,7 +114,7 @@ def llm_request_and_or_execute_function(spoken):
 
 
 async def main():
-    keyboard_or_microphone = "microphone"  # microphone or keyboard
+    keyboard_or_microphone = "keyboard"  # microphone or keyboard
 
     thread = threading.Thread(target=tts.talking_worker)
     thread.daemon = False

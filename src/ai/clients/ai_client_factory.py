@@ -5,7 +5,7 @@ from src.ai.clients.open_ai_client import OpenAiClient
 from src.tools.search.search import AudioChatConfig
 
 
-class AiClientFactory():
+class AiClientFactory:
     def __init__(self):
         self.config = AudioChatConfig().get_config()
 

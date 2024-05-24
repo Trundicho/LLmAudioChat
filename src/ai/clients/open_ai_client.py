@@ -51,7 +51,8 @@ class OpenAiClient(IOpenAiClient):
                         self.add_to_tts_queue(answer_for_audio)
                     answer_for_audio = ""
             else:
-                print(f"AI: {answer_for_audio}")
+                if "" != answer_for_audio.strip():
+                    print(f"AI: {answer_for_audio}")
                 if not is_function_call:
                     self.add_to_tts_queue(answer_for_audio)
         return answer

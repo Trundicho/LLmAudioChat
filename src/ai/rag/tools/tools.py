@@ -68,8 +68,11 @@ class Tools:
         return system_message
 
     def open_file(self, filepath):
-        with open(filepath, 'r', encoding='utf-8') as infile:
-            return infile.read()
+        if filepath != "":
+            with open(filepath, 'r', encoding='utf-8') as infile:
+                return infile.read()
+        print(f"File {filepath} not found")
+        return ""
 
     #############
     # FUNCTIONS #

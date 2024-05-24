@@ -10,6 +10,7 @@ from whispermlx import transcribe
 class VoiceToTextMlx(IVoiceToText):
     def __init__(self):
         self.recognizer = sr.Recognizer()
+        self.is_ambient_noise_detected = False
 
     # Size	    Parameters	English-only    Multilingual    Required VRAM	Relative speed
     # tiny	    39 M	    tiny.en	        tiny	        ~1 GB	        ~32x
@@ -18,6 +19,10 @@ class VoiceToTextMlx(IVoiceToText):
     # medium    769 M	    medium.en	    medium	        ~5 GB	        ~2x
     # large	    1550 M	    N/A	            large           ~10 GB	        1x
     def voice_to_text(self, source, language, whisper_model_type: str = "base"):
+        if not self.is_ambient_noise_detected:
+            print("Init ambient noise detection...")
+            self.recognizer.adjust_for_ambient_noise(source=source, duration=3)
+            self.is_ambient_noise_detected = True
         print("Speak something...")
         audio = self.recognizer.listen(source)
         print("Recording complete.")

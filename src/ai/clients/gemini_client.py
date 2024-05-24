@@ -2,6 +2,7 @@ import asyncio
 import base64
 import copy
 from threading import Thread
+import re
 
 import vertexai
 from vertexai.generative_models import GenerativeModel, Part
@@ -77,21 +78,29 @@ class GeminiClient(IOpenAiClient):
                     is_function_call = True
                     print("Function call detected")
                 if content is not None:
-                    content = content.replace("\n", " ").strip()
+                    content = content.replace("\n", " ")
                     if content != "":
                         answer += content
                         answer_for_audio += content
-                        if (answer_for_audio.__contains__(".")
-                                or answer_for_audio.__contains__("?") or answer_for_audio.__contains__("!")):
-                            print(f"AI: {answer_for_audio}")
-                            if not is_function_call:
-                                self.add_to_tts_queue(answer_for_audio)
-                            answer_for_audio = ""
+                        sentence_array, unfinished_sentence = self.split_sentences(answer_for_audio)
+                        if not is_function_call:
+                            for element in sentence_array:
+                                print(f"AI: {element}")
+                                self.add_to_tts_queue(element)
+                        answer_for_audio = unfinished_sentence
+
         if answer_for_audio is not None:
             print(f"AI: {answer_for_audio}")
             if not is_function_call:
                 self.add_to_tts_queue(answer_for_audio)
         return answer
+
+    def split_sentences(self, text):
+        sentences = re.findall(r'[^.!?]*[.!?]', text)
+        remaining_text = text
+        for sentence in sentences:
+            remaining_text = remaining_text.replace(sentence, '', 1)
+        return sentences, remaining_text
 
     def my_chat(self, messages, functions):
         return self.inference2(messages[len(messages) - 1]["content"])
