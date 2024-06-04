@@ -1,4 +1,4 @@
-# Local LLM Audio Chat
+# LLM Audio Chat
 
 This simple python script allows you to talk via microphone with a locally running LLM server via openai api.
 It uses openai whisper and if all is installed and setup does not require any internet connection.
